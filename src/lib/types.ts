@@ -1,35 +1,14 @@
+import type { Tables } from '@/lib/database.types';
+
+// Domain types derived from the generated schema so they can't drift from the
+// database. We narrow a couple of string/json columns to the shapes the app
+// actually relies on.
+
 export type WorkoutType = 'open' | 'distance_time' | 'custom' | 'rest';
 
-export type ScheduleDay = {
-  id: string;
-  runner_id: string;
-  week_start: string;
-  day_date: string;
-  title: string;
-  detail: string | null;
-  workout_type: WorkoutType | null;
-};
-
-export type Race = {
-  id: string;
-  runner_id: string;
-  name: string;
-  race_date: string;
-  distance: string | null;
-  location: string | null;
-  is_a_race: boolean;
-  notes: string | null;
-};
-
-export type RunEvent = {
-  id: string;
-  runner_id: string;
-  run_id: string | null;
-  event_type: 'start' | 'stop';
-  workout_type: string | null;
-  workout_label: string | null;
-  created_at: string;
-};
+export type ScheduleDay = Tables<'weekly_schedule'>;
+export type Race = Tables<'races'>;
+export type LivePosition = Tables<'live_positions'>;
 
 export type NowPlaying =
   | { isPlaying: false }
@@ -41,3 +20,8 @@ export type NowPlaying =
       progressMs: number;
       durationMs: number;
     };
+
+export type RunEvent = Omit<Tables<'run_events'>, 'event_type' | 'track_snapshot'> & {
+  event_type: 'start' | 'stop';
+  track_snapshot: NowPlaying | null;
+};

@@ -144,8 +144,25 @@ curl -X POST https://<project>.supabase.co/functions/v1/run-event \
 curl "https://<project>.supabase.co/functions/v1/now-playing?runner_id=<runner_id>"
 ```
 
-## v2 (scoped, not built)
+## v2 (groundwork laid)
 
-Live GPS tracking via a new `live_positions` table (attaches to the existing
-`run_events.run_id`) and a Ben-side background location reporter; multi-runner by
-resolving `runner_id` from the request instead of env. See the spec for details.
+Live GPS tracking is scaffolded but not wired to a real location source yet:
+
+- `live_positions` table (attaches to the existing `run_events.run_id`), in the
+  Realtime publication alongside `run_events`.
+- `/position` Edge Function — bearer auth via `runner_tokens`, inserts a point
+  and prunes stale rows. A Ben-side `expo-location` background reporter would
+  POST here every ~15-30s during a run:
+  ```bash
+  curl -X POST https://<project>.supabase.co/functions/v1/position \
+    -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+    -d '{"lat":39.0,"lng":-76.9,"run_id":"<active run_id>"}'
+  ```
+- The Live screen subscribes via Supabase Realtime and shows a location card
+  (currently lat/lng text — a `react-native-maps` `MapView` + breadcrumb trail
+  drops in at the marked `TODO(v2)`).
+
+Still to do for full v2: the background location reporter on Ben's phone,
+auto-stopping position writes on the `stop` event, and gating location reads
+behind a share code / auth. Multi-runner is already handled by the
+`runner_tokens` model — onboarding another runner is just rows.
