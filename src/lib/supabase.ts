@@ -1,0 +1,15 @@
+import { createClient } from '@supabase/supabase-js';
+
+import { SUPABASE_ANON_KEY, SUPABASE_URL } from '@/lib/config';
+
+// Read-mostly client for Kenz's device. No secrets here: anon key only, and
+// the display tables are anon-readable by RLS. Writes go through Edge Functions.
+//
+// No session persistence — the app never signs anyone in.
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false,
+    detectSessionInUrl: false,
+  },
+});

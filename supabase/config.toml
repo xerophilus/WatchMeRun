@@ -1,0 +1,18 @@
+# Supabase project config. Set project_id to your project ref before
+# `supabase link` / `supabase functions deploy`.
+project_id = "watchmerun"
+
+# Edge Functions do their own auth (custom RUNWATCH_TOKEN bearer on the write
+# endpoints; the read endpoints are intentionally public), so the platform's
+# JWT gate is turned off for all of them.
+[functions.register-token]
+verify_jwt = false
+
+[functions.update-week]
+verify_jwt = false
+
+[functions.run-event]
+verify_jwt = false
+
+[functions.now-playing]
+verify_jwt = false
