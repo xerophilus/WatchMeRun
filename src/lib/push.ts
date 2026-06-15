@@ -5,15 +5,21 @@ import { Platform } from 'react-native';
 
 import { FUNCTIONS_URL } from '@/lib/config';
 
-// Show banners while the app is foregrounded too.
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
+// Show banners while the app is foregrounded too. Wrapped because this runs at
+// module-eval time — if the native module is missing (e.g. an outdated build),
+// an uncaught throw here would take down everything that imports this file.
+try {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+    }),
+  });
+} catch (err) {
+  console.warn('expo-notifications native module unavailable:', err);
+}
 
 export type PushRegistration =
   | { status: 'registered'; token: string }
@@ -33,28 +39,28 @@ function getProjectId(): string | undefined {
  * permission is denied.
  */
 export async function registerForPush(label = 'Kenz'): Promise<PushRegistration> {
-  if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('default', {
-      name: 'default',
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
-    });
-  }
-
-  if (!Device.isDevice) {
-    // Push tokens only work on physical devices.
-    return { status: 'unsupported' };
-  }
-
-  const existing = await Notifications.getPermissionsAsync();
-  let granted = existing.granted;
-  if (!granted && existing.canAskAgain) {
-    const requested = await Notifications.requestPermissionsAsync();
-    granted = requested.granted;
-  }
-  if (!granted) return { status: 'denied' };
-
   try {
+    if (Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync('default', {
+        name: 'default',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+      });
+    }
+
+    if (!Device.isDevice) {
+      // Push tokens only work on physical devices.
+      return { status: 'unsupported' };
+    }
+
+    const existing = await Notifications.getPermissionsAsync();
+    let granted = existing.granted;
+    if (!granted && existing.canAskAgain) {
+      const requested = await Notifications.requestPermissionsAsync();
+      granted = requested.granted;
+    }
+    if (!granted) return { status: 'denied' };
+
     const projectId = getProjectId();
     const { data: token } = await Notifications.getExpoPushTokenAsync(
       projectId ? { projectId } : undefined,
@@ -70,6 +76,12 @@ export async function registerForPush(label = 'Kenz'): Promise<PushRegistration>
     }
     return { status: 'registered', token };
   } catch (err) {
+    // A missing native module (outdated build) surfaces here as a thrown
+    // "Cannot find native module" — treat it like push being unsupported on
+    // this build rather than crashing the registration flow.
+    if (String(err).includes('native module')) {
+      return { status: 'unsupported' };
+    }
     return { status: 'error', message: String(err) };
   }
 }
