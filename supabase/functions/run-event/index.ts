@@ -3,7 +3,7 @@
 //
 // { "event_type": "start", "workout_type": "distance_time", "workout_label": "6mi easy" }
 import { corsHeaders, json } from '../_shared/cors.ts';
-import { adminClient, assertBearer, runnerId, UnauthorizedError } from '../_shared/env.ts';
+import { adminClient, resolveRunnerFromToken, UnauthorizedError } from '../_shared/env.ts';
 import { sendExpoPush } from '../_shared/expoPush.ts';
 import { getNowPlaying } from '../_shared/spotify.ts';
 
@@ -20,7 +20,8 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
   try {
-    assertBearer(req);
+    const admin = adminClient();
+    const rid = await resolveRunnerFromToken(admin, req);
 
     const { event_type, workout_type, workout_label } = (await req.json()) as {
       event_type?: string;
@@ -30,9 +31,6 @@ Deno.serve(async (req) => {
     if (event_type !== 'start' && event_type !== 'stop') {
       return json({ error: "event_type must be 'start' or 'stop'" }, 400);
     }
-
-    const rid = runnerId();
-    const admin = adminClient();
 
     let runId = crypto.randomUUID();
     let trackSnapshot: unknown = null;

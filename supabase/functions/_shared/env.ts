@@ -1,7 +1,7 @@
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.108.2';
 
 // Service-role client. The only writer for run events and the only reader of
-// app_secrets. Never expose this key to the device.
+// app_secrets / runner_tokens. Never expose this key to the device.
 export function adminClient(): SupabaseClient {
   const url = Deno.env.get('SUPABASE_URL');
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -13,23 +13,30 @@ export function adminClient(): SupabaseClient {
   });
 }
 
-// Ben's seeded runners.id. Every function scopes its reads/writes to it.
-// In v2 this comes from the request instead of env.
-export function runnerId(): string {
-  const id = Deno.env.get('RUNNER_ID');
-  if (!id) throw new Error('Missing RUNNER_ID env var');
-  return id;
-}
-
-// Shared bearer token guarding the write endpoints Ben curls.
-export function assertBearer(req: Request): void {
-  const expected = Deno.env.get('RUNWATCH_TOKEN');
-  if (!expected) throw new Error('Missing RUNWATCH_TOKEN env var');
-  const header = req.headers.get('Authorization') ?? '';
-  const token = header.replace(/^Bearer\s+/i, '');
-  if (token !== expected) {
-    throw new UnauthorizedError('Invalid or missing bearer token');
-  }
-}
-
 export class UnauthorizedError extends Error {}
+
+/**
+ * Resolves which runner is writing from the bearer token. The token *is* the
+ * identity: each runner has their own row in `runner_tokens`, so there is no
+ * global shared secret and no single source of truth. v2 multi-runner is just
+ * more rows — no code change.
+ */
+export async function resolveRunnerFromToken(
+  admin: SupabaseClient,
+  req: Request,
+): Promise<string> {
+  const header = req.headers.get('Authorization') ?? '';
+  const token = header.replace(/^Bearer\s+/i, '').trim();
+  if (!token) throw new UnauthorizedError('Missing bearer token');
+
+  const { data, error } = await admin
+    .from('runner_tokens')
+    .select('runner_id, revoked_at')
+    .eq('token', token)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data || data.revoked_at) {
+    throw new UnauthorizedError('Invalid or revoked token');
+  }
+  return data.runner_id as string;
+}

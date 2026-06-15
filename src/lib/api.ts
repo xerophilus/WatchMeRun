@@ -55,7 +55,7 @@ export async function fetchLatestRunEvent(): Promise<RunEvent | null> {
 }
 
 export async function fetchNowPlaying(): Promise<NowPlaying> {
-  const res = await fetch(`${FUNCTIONS_URL}/now-playing`);
+  const res = await fetch(`${FUNCTIONS_URL}/now-playing?runner_id=${RUNNER_ID}`);
   if (!res.ok) return { isPlaying: false };
   return (await res.json()) as NowPlaying;
 }

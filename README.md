@@ -50,20 +50,30 @@ Grab Ben's runner id — you'll need it in two places:
 select id from runners where handle = 'ben';
 ```
 
-### 2. Edge Function secrets + deploy
+### 2. Deploy functions + mint a runner token
 
 ```bash
-# supabase/functions/.env  (see .env.example) — do NOT commit
-#   RUNWATCH_TOKEN=<any long random string>
-#   RUNNER_ID=<Ben's runner id from above>
-supabase secrets set --env-file supabase/functions/.env
-
 supabase functions deploy register-token update-week run-event now-playing
 ```
 
 `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are injected by the platform —
-you don't set them. All four functions run with `verify_jwt = false`
-(`supabase/config.toml`) because they do their own auth.
+and there are no other function secrets. All four functions run with
+`verify_jwt = false` (`supabase/config.toml`) because they do their own auth.
+
+**Write auth is per-runner, not a global secret.** The write endpoints
+(`update-week`, `run-event`) resolve which runner is writing from the bearer
+token, looked up in `runner_tokens`. Mint one for Ben (this is the value his
+iOS Shortcut will carry):
+
+```sql
+insert into runner_tokens (runner_id, token, label)
+values ((select id from runners where handle = 'ben'),
+        '<a-long-random-string>', 'Ben iPhone Shortcut');
+```
+
+To onboard a second runner later: add a `runners` row, their Spotify secrets,
+and a `runner_tokens` row. No code or schema changes — each runner is their own
+source of truth.
 
 ### 3. Spotify (one-time, manual — needs Ben's login)
 
@@ -107,27 +117,31 @@ Ben builds this in the Shortcuts app:
 
 - **Choose from Menu** → workout type (Open / Distance-Time / Custom), optionally **Ask for Input** for a label.
 - **Get Contents of URL** → POST `https://<project>.supabase.co/functions/v1/run-event`
-  - Headers: `Authorization: Bearer <RUNWATCH_TOKEN>`, `Content-Type: application/json`
+  - Headers: `Authorization: Bearer <Ben's runner_tokens token>`, `Content-Type: application/json`
   - Body: `{ "event_type": "start", "workout_type": "<chosen>", "workout_label": "<input>" }`
 - A second Shortcut posts the same with `"event_type": "stop"`.
 
-No `runner_id` in the payload — the Edge Function supplies it from its
-`RUNNER_ID` env.
+No `runner_id` in the payload — the Edge Function resolves it from the token.
 
 ## Curl reference
 
 ```bash
+# $TOKEN is a runner's value from the runner_tokens table.
+
 # Set the week
 curl -X POST https://<project>.supabase.co/functions/v1/update-week \
-  -H "Authorization: Bearer $RUNWATCH_TOKEN" -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '{"week_start":"2026-06-15","days":[
         {"day_date":"2026-06-15","title":"Easy 6mi","workout_type":"distance_time","detail":"z2"},
         {"day_date":"2026-06-16","title":"Rest","workout_type":"rest"}]}'
 
 # Fire a run start
 curl -X POST https://<project>.supabase.co/functions/v1/run-event \
-  -H "Authorization: Bearer $RUNWATCH_TOKEN" -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '{"event_type":"start","workout_type":"distance_time","workout_label":"6mi easy"}'
+
+# Now playing (read-only, runner named in the query)
+curl "https://<project>.supabase.co/functions/v1/now-playing?runner_id=<runner_id>"
 ```
 
 ## v2 (scoped, not built)
