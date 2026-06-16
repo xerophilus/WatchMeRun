@@ -60,7 +60,7 @@ export default function RacesScreen() {
         ordered.map((race) => {
           const isPast = daysUntil(race.race_date) < 0;
           return (
-            <Card key={race.id} highlighted={race.is_a_race && !isPast} style={isPast && styles.past}>
+            <Card key={race.id} highlighted={Boolean(race.is_a_race) && !isPast} style={isPast && styles.past}>
               <View style={styles.headerRow}>
                 <ThemedText type="default" style={styles.name}>
                   {race.name}

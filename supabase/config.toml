@@ -16,3 +16,6 @@ verify_jwt = false
 
 [functions.now-playing]
 verify_jwt = false
+
+[functions.position]
+verify_jwt = false
