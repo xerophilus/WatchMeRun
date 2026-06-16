@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "watchmerun",
+    "name": "WatchMeRun",
     "slug": "watchmerun",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -30,10 +30,13 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
-          "android": {
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#EAF6F5",
+          "dark": {
             "image": "./assets/images/splash-icon.png",
-            "imageWidth": 76
+            "backgroundColor": "#00332F"
           }
         }
       ]
