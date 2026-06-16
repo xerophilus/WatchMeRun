@@ -123,6 +123,23 @@ Ben builds this in the Shortcuts app:
 
 No `runner_id` in the payload — the Edge Function resolves it from the token.
 
+### In-app "Start my run" button (runner-only)
+
+The Live screen can show a Start/Stop control that hits the same `run-event`
+beacon, so Ben can kick off a tracked run (now-playing snapshot + watcher push)
+without leaving the app, then hand off to his run app of choice. It appears
+**only** on a build that carries a write token — set `EXPO_PUBLIC_RUNNER_TOKEN`
+(the same `runner_tokens` value the Shortcut uses) on Ben's device. Kenz's build
+leaves it unset and stays read-only.
+
+`EXPO_PUBLIC_PREFERRED_RUN_APP` (`apple_workout` | `strava` | `nike_run_club` |
+`none`) sets which app the button opens after firing the beacon. Note: no app
+exposes a "start my run" API — the button can only *open* Strava/Nike to their
+record screen for the runner to tap go; Apple's Workout app has no iPhone URL
+scheme, so that option is beacon-only (start the workout on the watch). The
+`strava`/`nikerunclub` schemes are declared in `app.json` under
+`LSApplicationQueriesSchemes` so `canOpenURL` works.
+
 ## Curl reference
 
 ```bash
