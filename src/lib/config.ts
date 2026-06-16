@@ -22,8 +22,13 @@ export const isConfigured = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY && RUNNER_
 export const RUNNER_TOKEN = process.env.EXPO_PUBLIC_RUNNER_TOKEN ?? '';
 
 // Which run app the in-app "Start My Run" button opens after firing the beacon.
-// One of: 'apple_workout' | 'strava' | 'nike_run_club' | 'none'.
+// One of: 'apple_workout' | 'apple_shortcut' | 'strava' | 'nike_run_club' | 'none'.
 export const PREFERRED_RUN_APP = process.env.EXPO_PUBLIC_PREFERRED_RUN_APP ?? 'apple_workout';
+
+// Name of the runner's watchOS Shortcut that starts an Apple workout. When set,
+// the "Apple Watch (Shortcut)" option appears and is launched with the picked
+// workout as JSON input, so the selection carries into Apple's Workout app.
+export const RUN_SHORTCUT_NAME = process.env.EXPO_PUBLIC_RUN_SHORTCUT_NAME ?? '';
 
 // True only on a build that holds a write token — i.e. the runner's device.
 export const isRunner = Boolean(RUNNER_TOKEN);

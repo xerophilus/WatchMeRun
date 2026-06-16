@@ -8,7 +8,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { fetchLatestWeek, sendRunEvent } from '@/lib/api';
 import { PREFERRED_RUN_APP } from '@/lib/config';
 import { isToday } from '@/lib/date';
-import { isRunApp, openRunApp, RUN_APPS, RUN_APP_ORDER, type RunApp } from '@/lib/run-apps';
+import { isRunApp, openRunApp, RUN_APPS, runAppOrder, type RunApp } from '@/lib/run-apps';
 import type { RunEvent, ScheduleDay } from '@/lib/types';
 
 const DEFAULT_APP: RunApp = isRunApp(PREFERRED_RUN_APP) ? PREFERRED_RUN_APP : 'apple_workout';
@@ -69,12 +69,15 @@ export function StartRunControl({
         await sendRunEvent('stop');
       } else {
         const day = days.find((d) => d.id === selectedDayId);
-        await sendRunEvent('start', {
+        const payload = {
           workoutType: day?.workout_type ?? undefined,
           workoutLabel: day?.title ?? undefined,
-        });
-        // Hand off to the chosen app (best-effort; beacon already fired).
-        await openRunApp(selectedApp);
+          detail: day?.detail ?? undefined,
+        };
+        await sendRunEvent('start', payload);
+        // Hand off to the chosen app, carrying the picked workout where the app
+        // can use it (the Shortcut bridge). Best-effort; beacon already fired.
+        await openRunApp(selectedApp, payload);
       }
       onChanged();
     } catch (e) {
@@ -121,7 +124,7 @@ export function StartRunControl({
             Open
           </ThemedText>
           <View style={styles.chips}>
-            {RUN_APP_ORDER.map((app) => (
+            {runAppOrder().map((app) => (
               <WorkoutChip
                 key={app}
                 label={`${RUN_APPS[app].glyph} ${RUN_APPS[app].label}`}

@@ -11,7 +11,7 @@
       "bundleIdentifier": "com.xerophilus.watchmerun",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "LSApplicationQueriesSchemes": ["strava", "nikerunclub"]
+        "LSApplicationQueriesSchemes": ["strava", "nikerunclub", "shortcuts"]
       }
     },
     "android": {
