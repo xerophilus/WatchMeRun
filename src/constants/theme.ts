@@ -14,6 +14,10 @@ export const Colors = {
     backgroundElement: '#F0F0F3',
     backgroundSelected: '#E0E1E6',
     textSecondary: '#60646C',
+    /** Brand teal — chrome (links, progress, active tab, chips). */
+    tint: '#006B64',
+    /** Brand orange — "active now" energy (live run, today). */
+    accent: '#F26B21',
   },
   dark: {
     text: '#ffffff',
@@ -21,6 +25,10 @@ export const Colors = {
     backgroundElement: '#212225',
     backgroundSelected: '#2E3135',
     textSecondary: '#B0B4BA',
+    /** Brand teal — brightened so it reads on a black background. */
+    tint: '#2FB6AB',
+    /** Brand orange — brightened for dark mode. */
+    accent: '#FF7A33',
   },
 } as const;
 

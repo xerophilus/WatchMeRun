@@ -117,7 +117,7 @@ export default function LiveScreen() {
               <View
                 style={[
                   styles.dot,
-                  { backgroundColor: isRunning ? '#22c55e' : theme.textSecondary },
+                  { backgroundColor: isRunning ? theme.accent : theme.textSecondary },
                 ]}
               />
               <ThemedText type="default" style={styles.statusText}>
@@ -212,7 +212,7 @@ function ProgressBar({ progressMs, durationMs }: { progressMs: number; durationM
   return (
     <View style={styles.progressWrap}>
       <View style={[styles.progressTrack, { backgroundColor: theme.backgroundSelected }]}>
-        <View style={[styles.progressFill, { width: `${pct}%` }]} />
+        <View style={[styles.progressFill, { width: `${pct}%`, backgroundColor: theme.tint }]} />
       </View>
       <View style={styles.timeRow}>
         <ThemedText type="small" themeColor="textSecondary">
@@ -239,6 +239,6 @@ const styles = StyleSheet.create({
   track: { fontWeight: '700' },
   progressWrap: { marginTop: Spacing.two, gap: Spacing.half },
   progressTrack: { height: 4, borderRadius: 2, overflow: 'hidden' },
-  progressFill: { height: 4, backgroundColor: '#3c87f7', borderRadius: 2 },
+  progressFill: { height: 4, borderRadius: 2 },
   timeRow: { flexDirection: 'row', justifyContent: 'space-between' },
 });

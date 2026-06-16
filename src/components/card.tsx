@@ -18,7 +18,7 @@ export function Card({ highlighted, style, children }: CardProps) {
       type="backgroundElement"
       style={[
         styles.card,
-        highlighted && { borderColor: '#3c87f7', borderWidth: 2 },
+        highlighted && { borderColor: theme.accent, borderWidth: 2 },
         style,
       ]}>
       <View>{children}</View>

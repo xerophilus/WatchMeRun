@@ -5,6 +5,7 @@ import { Card } from '@/components/card';
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { usePushRegistration } from '@/hooks/use-push';
 import { fetchLatestWeek } from '@/lib/api';
 import { isConfigured } from '@/lib/config';
@@ -23,6 +24,7 @@ function glyph(type: string | null): string {
 }
 
 export default function ThisWeekScreen() {
+  const theme = useTheme();
   const [days, setDays] = useState<ScheduleDay[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -97,7 +99,10 @@ export default function ThisWeekScreen() {
                 <ThemedText style={styles.glyph}>{glyph(day.workout_type)}</ThemedText>
                 <View style={styles.body}>
                   <View style={styles.titleRow}>
-                    <ThemedText themeColor="textSecondary" type="smallBold">
+                    <ThemedText
+                      themeColor="textSecondary"
+                      type="smallBold"
+                      style={today ? { color: theme.accent } : undefined}>
                       {today ? 'TODAY' : weekdayShort(day.day_date).toUpperCase()}
                     </ThemedText>
                     <ThemedText themeColor="textSecondary" type="small">
