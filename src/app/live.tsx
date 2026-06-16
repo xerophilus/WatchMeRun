@@ -8,10 +8,11 @@ import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { fetchLatestRunEvent, fetchNowPlaying } from '@/lib/api';
-import { isConfigured } from '@/lib/config';
+import { fetchLatestPosition, fetchLatestRunEvent, fetchNowPlaying } from '@/lib/api';
+import { RUNNER_ID, isConfigured } from '@/lib/config';
 import { clockTime, elapsedSince } from '@/lib/date';
-import type { NowPlaying, RunEvent } from '@/lib/types';
+import { supabase } from '@/lib/supabase';
+import type { LivePosition, NowPlaying, RunEvent } from '@/lib/types';
 
 const POLL_MS = 30_000;
 
@@ -26,6 +27,7 @@ export default function LiveScreen() {
   const theme = useTheme();
   const [runEvent, setRunEvent] = useState<RunEvent | null>(null);
   const [nowPlaying, setNowPlaying] = useState<NowPlaying | null>(null);
+  const [position, setPosition] = useState<LivePosition | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   // Locally-advanced playback position for a smooth progress bar between polls.
   const [progressMs, setProgressMs] = useState(0);
@@ -42,15 +44,37 @@ export default function LiveScreen() {
       setProgressMs(np.progressMs);
       lastSync.current = Date.now();
     }
+    // Only an in-progress run has a live position worth showing.
+    const runId = event?.event_type === 'start' ? event.run_id : null;
+    setPosition(await fetchLatestPosition(runId).catch(() => null));
   }, []);
 
-  // Poll while the screen is focused.
+  // Poll (covers Spotify, which can't be realtime) + subscribe to run/position
+  // changes for instant start/stop and GPS updates, while the screen is focused.
   useFocusEffect(
     useCallback(() => {
       if (!isConfigured) return;
       load();
-      const id = setInterval(load, POLL_MS);
-      return () => clearInterval(id);
+      const interval = setInterval(load, POLL_MS);
+
+      const channel = supabase
+        .channel('live-screen')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'run_events', filter: `runner_id=eq.${RUNNER_ID}` },
+          () => load(),
+        )
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'live_positions', filter: `runner_id=eq.${RUNNER_ID}` },
+          () => load(),
+        )
+        .subscribe();
+
+      return () => {
+        clearInterval(interval);
+        supabase.removeChannel(channel);
+      };
     }, [load]),
   );
 
@@ -71,6 +95,7 @@ export default function LiveScreen() {
   }, [load]);
 
   const isRunning = runEvent?.event_type === 'start';
+  const startTrack = isRunning && runEvent?.track_snapshot?.isPlaying ? runEvent.track_snapshot : null;
 
   return (
     <Screen
@@ -102,8 +127,8 @@ export default function LiveScreen() {
             {runEvent ? (
               <ThemedText type="small" themeColor="textSecondary">
                 {isRunning
-                  ? `Since ${clockTime(runEvent.created_at)} · ${elapsedSince(runEvent.created_at)}`
-                  : `Last run ended ${clockTime(runEvent.created_at)}`}
+                  ? `Since ${clockTime(runEvent.created_at!)} · ${elapsedSince(runEvent.created_at!)}`
+                  : `Last run ended ${clockTime(runEvent.created_at!)}`}
               </ThemedText>
             ) : (
               <ThemedText type="small" themeColor="textSecondary">
@@ -115,7 +140,37 @@ export default function LiveScreen() {
                 {runEvent.workout_label}
               </ThemedText>
             ) : null}
+            {startTrack ? (
+              <ThemedText type="small" themeColor="textSecondary" style={styles.startTrack}>
+                🎧 Headed out to {startTrack.track} — {startTrack.artist}
+              </ThemedText>
+            ) : null}
           </Card>
+
+          {/* Live location card (v2 groundwork) */}
+          {isRunning ? (
+            <Card>
+              <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionLabel}>
+                LIVE LOCATION
+              </ThemedText>
+              {position ? (
+                // TODO(v2): drop a react-native-maps <MapView> here with a marker
+                // at {position.lat, position.lng} and a breadcrumb trail.
+                <View>
+                  <ThemedText type="default">
+                    {position.lat.toFixed(5)}, {position.lng.toFixed(5)}
+                  </ThemedText>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    Updated {clockTime(position.recorded_at)} · map coming in v2
+                  </ThemedText>
+                </View>
+              ) : (
+                <ThemedText type="small" themeColor="textSecondary">
+                  Not sharing location for this run.
+                </ThemedText>
+              )}
+            </Card>
+          ) : null}
 
           {/* Now-playing card */}
           <Card>
@@ -176,6 +231,7 @@ const styles = StyleSheet.create({
   dot: { width: 12, height: 12, borderRadius: 6 },
   statusText: { fontWeight: '700', fontSize: 20 },
   workoutLabel: { marginTop: Spacing.two, fontWeight: '600' },
+  startTrack: { marginTop: Spacing.one },
   sectionLabel: { marginBottom: Spacing.two, letterSpacing: 1 },
   npRow: { flexDirection: 'row', gap: Spacing.three, alignItems: 'center' },
   albumArt: { width: 72, height: 72, borderRadius: Spacing.two },

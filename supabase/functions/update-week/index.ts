@@ -10,7 +10,7 @@
 //   ]
 // }
 import { corsHeaders, json } from '../_shared/cors.ts';
-import { adminClient, assertBearer, runnerId, UnauthorizedError } from '../_shared/env.ts';
+import { adminClient, resolveRunnerFromToken, UnauthorizedError } from '../_shared/env.ts';
 
 type Day = {
   day_date: string;
@@ -24,7 +24,8 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
   try {
-    assertBearer(req);
+    const admin = adminClient();
+    const rid = await resolveRunnerFromToken(admin, req);
 
     const { week_start, days } = (await req.json()) as {
       week_start?: string;
@@ -33,9 +34,6 @@ Deno.serve(async (req) => {
     if (!week_start || !Array.isArray(days)) {
       return json({ error: 'week_start and days[] are required' }, 400);
     }
-
-    const rid = runnerId();
-    const admin = adminClient();
 
     // Replace the whole week for this runner.
     const { error: delErr } = await admin

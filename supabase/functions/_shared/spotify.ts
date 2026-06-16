@@ -27,7 +27,9 @@ async function loadSecrets(admin: SupabaseClient, runnerId: string): Promise<Sec
 
   if (error) throw error;
 
-  const map = new Map((data ?? []).map((r) => [r.key as string, r.value as string]));
+  const map = new Map(
+    (data ?? []).map((r: { key: string; value: string }) => [r.key, r.value]),
+  );
   const clientId = map.get('spotify_client_id');
   const clientSecret = map.get('spotify_client_secret');
   const refreshToken = map.get('spotify_refresh_token');

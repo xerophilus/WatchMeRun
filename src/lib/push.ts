@@ -3,7 +3,7 @@ import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
-import { FUNCTIONS_URL } from '@/lib/config';
+import { FUNCTIONS_URL, RUNNER_ID } from '@/lib/config';
 
 // Show banners while the app is foregrounded too. Wrapped because this runs at
 // module-eval time — if the native module is missing (e.g. an outdated build),
@@ -69,7 +69,7 @@ export async function registerForPush(label = 'Kenz'): Promise<PushRegistration>
     const res = await fetch(`${FUNCTIONS_URL}/register-token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, label }),
+      body: JSON.stringify({ token, label, runner_id: RUNNER_ID }),
     });
     if (!res.ok) {
       return { status: 'error', message: `register-token ${res.status}` };
