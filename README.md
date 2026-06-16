@@ -153,13 +153,22 @@ WatchMeRun opens `shortcuts://run-shortcut?name=<name>&input=<json>` with the
 picked workout as input:
 
 ```json
-{ "type": "distance_time", "label": "Easy 6mi", "detail": "z2" }
+{
+  "type": "distance_time",
+  "label": "Easy 6mi",
+  "detail": "z2",
+  "goal": { "kind": "distance", "value": 6, "unit": "mi" }
+}
 ```
 
-The Shortcut (built in the Shortcuts app, run from the watch) should:
+`goal` is parsed from the workout text for you: `{ "kind": "distance", "value",
+"unit": "mi"|"km" }`, `{ "kind": "time", "minutes" }`, or `{ "kind": "open" }`
+when nothing parseable is found. The Shortcut (built in the Shortcuts app, run
+from the watch) should:
 
-1. **Get Dictionary from Input** → read `type` / `label` / `detail`.
-2. **Start Workout** (Outdoor Run), optionally mapping `type`/`label` to a goal.
+1. **Get Dictionary from Input** → read `goal` (and `label` for display).
+2. **If** `goal.kind` is `distance`/`time` → **Start Workout** (Outdoor Run)
+   with that distance/time goal; otherwise start an open Outdoor Run.
 
 Strava and Nike Run Club have no equivalent — they can't accept the workout on
 start (Strava can only be retitled *after* upload via its API + OAuth).

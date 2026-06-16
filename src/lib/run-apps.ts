@@ -45,6 +45,46 @@ export type RunPayload = {
   detail?: string;
 };
 
+// A structured goal the Shortcut can feed straight into "Start Workout" without
+// parsing strings on the watch.
+export type RunGoal =
+  | { kind: 'distance'; value: number; unit: 'mi' | 'km' }
+  | { kind: 'time'; minutes: number }
+  | { kind: 'open' };
+
+/**
+ * Best-effort goal extraction from the free-text schedule (title + detail),
+ * e.g. "Easy 6mi" → 6 mi, "Tempo 45min" → 45 min, "10k" → 10 km. Returns an
+ * open goal when nothing parseable is found, or for open/rest workouts.
+ */
+export function parseRunGoal(
+  workoutType: string | undefined,
+  ...texts: (string | null | undefined)[]
+): RunGoal {
+  if (workoutType === 'open' || workoutType === 'rest') return { kind: 'open' };
+  const hay = texts.filter(Boolean).join(' ').toLowerCase();
+
+  // Distance: 6mi, 6 mi, 13.1 miles, 5km, 10k.
+  const dist = hay.match(/(\d+(?:\.\d+)?)\s*(miles|mile|mi|km|k)\b/);
+  if (dist) {
+    return {
+      kind: 'distance',
+      value: parseFloat(dist[1]),
+      unit: dist[2].startsWith('k') ? 'km' : 'mi',
+    };
+  }
+
+  // Time: 45min, 90 minutes, 1hr, 1.5h.
+  const time = hay.match(/(\d+(?:\.\d+)?)\s*(hours|hour|hr|h|minutes|minute|mins|min)\b/);
+  if (time) {
+    const value = parseFloat(time[1]);
+    const isHours = time[2].startsWith('h');
+    return { kind: 'time', minutes: Math.round(isHours ? value * 60 : value) };
+  }
+
+  return { kind: 'open' };
+}
+
 async function tryOpen(url: string): Promise<boolean> {
   try {
     await Linking.openURL(url);
@@ -70,6 +110,7 @@ export async function openRunApp(app: RunApp, payload: RunPayload = {}): Promise
       type: payload.workoutType ?? null,
       label: payload.workoutLabel ?? null,
       detail: payload.detail ?? null,
+      goal: parseRunGoal(payload.workoutType, payload.workoutLabel, payload.detail),
     });
     const url =
       `shortcuts://run-shortcut?name=${encodeURIComponent(RUN_SHORTCUT_NAME)}` +
