@@ -19,3 +19,11 @@ verify_jwt = false
 
 [functions.position]
 verify_jwt = false
+
+# provision-runner / redeem-invite verify the Supabase user JWT themselves (so
+# they can also distinguish "no profile yet"), so the platform gate stays off.
+[functions.provision-runner]
+verify_jwt = false
+
+[functions.redeem-invite]
+verify_jwt = false
