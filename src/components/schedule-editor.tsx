@@ -8,6 +8,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { updateWeek } from '@/lib/api';
 import { weekdayShort } from '@/lib/date';
 import { parseSchedule, serializeWeek } from '@/lib/schedule-format';
+import { useSession } from '@/lib/session';
 import type { ScheduleDay } from '@/lib/types';
 
 const PLACEHOLDER = `Week of 2026-06-15
@@ -19,7 +20,7 @@ const PLACEHOLDER = `Week of 2026-06-15
  * Runner-only schedule editor: paste a week (or tweak the current one) and save.
  * Wraps the update-week Edge Function. Accepts the simple line format or JSON
  * (see schedule-format.ts) and shows a live parsed preview before writing, so a
- * bad paste can't silently clobber the week. Only rendered when isRunner.
+ * bad paste can't silently clobber the week. Only rendered when viewing yourself.
  */
 export function ScheduleEditor({
   week,
@@ -31,6 +32,7 @@ export function ScheduleEditor({
   onSaved: () => void;
 }) {
   const theme = useTheme();
+  const { me } = useSession();
   const [open, setOpen] = useState(false);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
@@ -48,12 +50,12 @@ export function ScheduleEditor({
   }
 
   async function onSave() {
-    if (!parsed || !parsed.ok) return;
+    if (!parsed || !parsed.ok || !me) return;
     setBusy(true);
     setError(null);
     setSaved(null);
     try {
-      const count = await updateWeek(parsed.weekStart, parsed.days);
+      const count = await updateWeek(me.id, parsed.weekStart, parsed.days);
       setSaved(count);
       onSaved();
     } catch (e) {

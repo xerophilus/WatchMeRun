@@ -34,6 +34,9 @@ Deno.serve(async (req) => {
     };
     const cleanName = (name ?? '').trim();
     const cleanHandle = (handle ?? '').trim().toLowerCase().replace(/^@/, '');
+
+    // No linked runner and no profile supplied: signal onboarding, don't error.
+    if (!cleanName && !cleanHandle) return json({ runner: null });
     if (!cleanName) return json({ error: 'A display name is required.' }, 400);
     if (!HANDLE_RE.test(cleanHandle)) {
       return json({ error: 'Handle must be 2–30 chars: letters, numbers, or _.' }, 400);

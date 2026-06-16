@@ -2,34 +2,35 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { Card } from '@/components/card';
+import { PersonSwitcher } from '@/components/person-switcher';
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { fetchRaces } from '@/lib/api';
-import { isConfigured } from '@/lib/config';
 import { daysUntil, fullDate, relativeDay } from '@/lib/date';
+import { useSession } from '@/lib/session';
 import type { Race } from '@/lib/types';
 
 export default function RacesScreen() {
   const theme = useTheme();
+  const { me, watching, viewedId } = useSession();
+  const targetId = viewedId ?? me?.id ?? null;
   const [races, setRaces] = useState<Race[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
+    if (!targetId) return;
     try {
-      setRaces(await fetchRaces());
+      setRaces(await fetchRaces(targetId));
     } catch {
       // surfaced as empty state; pull to retry
     }
-  }, []);
+  }, [targetId]);
 
   useEffect(() => {
-    if (!isConfigured) {
-      setLoading(false);
-      return;
-    }
+    setLoading(true);
     load().finally(() => setLoading(false));
   }, [load]);
 
@@ -44,13 +45,14 @@ export default function RacesScreen() {
   const past = races.filter((r) => daysUntil(r.race_date) < 0).reverse();
   const ordered = [...upcoming, ...past];
 
+  const isSelf = targetId === me?.id;
+  const viewedRunner = isSelf ? me : watching.find((w) => w.id === targetId);
+  const subtitle = isSelf ? 'The season ahead' : `${viewedRunner?.name ?? 'Their'}'s season`;
+
   return (
-    <Screen
-      title="Races"
-      subtitle="The season ahead"
-      refreshing={refreshing}
-      onRefresh={isConfigured ? onRefresh : undefined}>
-      {loading && isConfigured ? (
+    <Screen title="Races" subtitle={subtitle} refreshing={refreshing} onRefresh={onRefresh}>
+      <PersonSwitcher />
+      {loading ? (
         <ActivityIndicator style={styles.loader} />
       ) : ordered.length === 0 ? (
         <Card>

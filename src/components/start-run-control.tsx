@@ -8,6 +8,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { fetchLatestWeek, sendRunEvent } from '@/lib/api';
 import { PREFERRED_RUN_APP } from '@/lib/config';
 import { isToday } from '@/lib/date';
+import { useSession } from '@/lib/session';
 import { isRunApp, openRunApp, RUN_APPS, runAppOrder, type RunApp } from '@/lib/run-apps';
 import type { RunEvent, ScheduleDay } from '@/lib/types';
 
@@ -17,12 +18,11 @@ const DEFAULT_APP: RunApp = isRunApp(PREFERRED_RUN_APP) ? PREFERRED_RUN_APP : 'a
 const NO_LABEL = '__none__';
 
 /**
- * Runner-only control: one button to fire the start/stop beacon, plus quick
- * pickers for which scheduled workout to tag the run with and which run app to
- * open on start. Mirrors the iOS Shortcut, but lives in the app so the runner
- * can kick off a tracked run (now-playing snapshot + watcher push) without
- * leaving WatchMeRun. Only rendered when the build holds a runner token — see
- * `isRunner`.
+ * One button to fire the start/stop beacon, plus quick pickers for which
+ * scheduled workout to tag the run with and which run app to open on start.
+ * Mirrors the iOS Shortcut, but lives in the app so you can kick off a tracked
+ * run (now-playing snapshot + watcher push) without leaving WatchMeRun. Only
+ * rendered when you're viewing your own Live screen.
  */
 export function StartRunControl({
   runEvent,
@@ -32,6 +32,7 @@ export function StartRunControl({
   onChanged: () => void;
 }) {
   const theme = useTheme();
+  const { me } = useSession();
   const [selectedApp, setSelectedApp] = useState<RunApp>(DEFAULT_APP);
   const [days, setDays] = useState<ScheduleDay[]>([]);
   // run_events row id of the picked workout, or NO_LABEL for an unplanned run.
@@ -44,8 +45,9 @@ export function StartRunControl({
   // Pull this week so the runner can tag the run with a planned workout, and
   // default to today's if there is one.
   useEffect(() => {
+    if (!me) return;
     let active = true;
-    fetchLatestWeek()
+    fetchLatestWeek(me.id)
       .then((week) => {
         if (!active) return;
         const runnable = week.filter((d) => d.workout_type !== 'rest');
@@ -59,7 +61,7 @@ export function StartRunControl({
     return () => {
       active = false;
     };
-  }, []);
+  }, [me]);
 
   async function onPress() {
     setBusy(true);

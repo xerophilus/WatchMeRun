@@ -3,7 +3,7 @@ import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
-import { FUNCTIONS_URL, RUNNER_ID } from '@/lib/config';
+import { FUNCTIONS_URL } from '@/lib/config';
 
 // Show banners while the app is foregrounded too. Wrapped because this runs at
 // module-eval time — if the native module is missing (e.g. an outdated build),
@@ -34,11 +34,15 @@ function getProjectId(): string | undefined {
 }
 
 /**
- * Requests permission, gets the Expo push token, and registers it with the
- * backend for Ben's crew. Returns the outcome so the UI can show a banner when
- * permission is denied.
+ * Requests permission, gets the Expo push token, and registers it as owned by
+ * the signed-in runner (`ownerRunnerId`). run-event then fans out to the people
+ * who watch a runner via their own tokens. Returns the outcome so the UI can
+ * show a banner when permission is denied.
  */
-export async function registerForPush(label = 'Kenz'): Promise<PushRegistration> {
+export async function registerForPush(
+  ownerRunnerId: string,
+  label?: string,
+): Promise<PushRegistration> {
   try {
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync('default', {
@@ -69,7 +73,7 @@ export async function registerForPush(label = 'Kenz'): Promise<PushRegistration>
     const res = await fetch(`${FUNCTIONS_URL}/register-token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, label, runner_id: RUNNER_ID }),
+      body: JSON.stringify({ token, label: label ?? null, runner_id: ownerRunnerId }),
     });
     if (!res.ok) {
       return { status: 'error', message: `register-token ${res.status}` };
@@ -86,13 +90,18 @@ export async function registerForPush(label = 'Kenz'): Promise<PushRegistration>
   }
 }
 
-// Memoize so the layout (side effect) and any screen (banner) share one
-// registration attempt instead of racing to register the token twice.
+// Memoize per owner so the layout (side effect) and any screen (banner) share
+// one registration attempt instead of racing to register the token twice.
+let registrationOwner: string | null = null;
 let registrationPromise: Promise<PushRegistration> | null = null;
 
-export function ensurePushRegistration(label = 'Kenz'): Promise<PushRegistration> {
-  if (!registrationPromise) {
-    registrationPromise = registerForPush(label);
+export function ensurePushRegistration(
+  ownerRunnerId: string,
+  label?: string,
+): Promise<PushRegistration> {
+  if (!registrationPromise || registrationOwner !== ownerRunnerId) {
+    registrationOwner = ownerRunnerId;
+    registrationPromise = registerForPush(ownerRunnerId, label);
   }
   return registrationPromise;
 }

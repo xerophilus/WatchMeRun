@@ -233,22 +233,85 @@ export type Database = {
       }
       runners: {
         Row: {
+          avatar_url: string | null
           created_at: string | null
           handle: string | null
           id: string
           name: string
+          user_id: string | null
         }
         Insert: {
+          avatar_url?: string | null
           created_at?: string | null
           handle?: string | null
           id?: string
           name: string
+          user_id?: string | null
         }
         Update: {
+          avatar_url?: string | null
           created_at?: string | null
           handle?: string | null
           id?: string
           name?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      follows: {
+        Row: {
+          approved_at: string | null
+          created_at: string | null
+          id: string
+          runner_id: string
+          status: string
+          watcher_id: string
+        }
+        Insert: {
+          approved_at?: string | null
+          created_at?: string | null
+          id?: string
+          runner_id: string
+          status?: string
+          watcher_id: string
+        }
+        Update: {
+          approved_at?: string | null
+          created_at?: string | null
+          id?: string
+          runner_id?: string
+          status?: string
+          watcher_id?: string
+        }
+        Relationships: []
+      }
+      invites: {
+        Row: {
+          code: string
+          created_at: string | null
+          expires_at: string | null
+          id: string
+          max_uses: number
+          runner_id: string
+          uses: number
+        }
+        Insert: {
+          code: string
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          max_uses?: number
+          runner_id: string
+          uses?: number
+        }
+        Update: {
+          code?: string
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          max_uses?: number
+          runner_id?: string
+          uses?: number
         }
         Relationships: []
       }

@@ -9,6 +9,7 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "bundleIdentifier": "com.xerophilus.watchmerun",
+      "usesAppleSignIn": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "LSApplicationQueriesSchemes": ["strava", "nikerunclub", "shortcuts"]
@@ -28,6 +29,7 @@
     "plugins": [
       "expo-router",
       "expo-notifications",
+      "expo-apple-authentication",
       [
         "expo-splash-screen",
         {
