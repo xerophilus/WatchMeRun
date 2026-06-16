@@ -132,13 +132,46 @@ without leaving the app, then hand off to his run app of choice. It appears
 (the same `runner_tokens` value the Shortcut uses) on Ben's device. Kenz's build
 leaves it unset and stays read-only.
 
-`EXPO_PUBLIC_PREFERRED_RUN_APP` (`apple_workout` | `strava` | `nike_run_club` |
-`none`) sets which app the button opens after firing the beacon. Note: no app
-exposes a "start my run" API — the button can only *open* Strava/Nike to their
-record screen for the runner to tap go; Apple's Workout app has no iPhone URL
-scheme, so that option is beacon-only (start the workout on the watch). The
-`strava`/`nikerunclub` schemes are declared in `app.json` under
+The button also picks a scheduled workout (defaults to today's) and tags the
+run with its `workout_type` + `workout_label`, so the watcher push and run card
+show the planned session. "No label" starts an unplanned run.
+
+`EXPO_PUBLIC_PREFERRED_RUN_APP` (`apple_workout` | `apple_shortcut` | `strava` |
+`nike_run_club` | `none`) sets which app the button opens after firing the
+beacon. Note: no app exposes a "start my run" API — the button can only *open*
+Strava/Nike to their record screen for the runner to tap go; plain Apple Workout
+has no iPhone URL scheme, so that option is beacon-only. The `strava`/
+`nikerunclub` schemes are declared in `app.json` under
 `LSApplicationQueriesSchemes` so `canOpenURL` works.
+
+#### Carrying the picked workout into Apple's Workout app (Shortcut bridge)
+
+The selection can only be *handed to* the run app for Apple's Workout app, via a
+watchOS Shortcut. Set `EXPO_PUBLIC_RUN_SHORTCUT_NAME` to the name of a Shortcut
+Ben builds once; the "Apple Watch (Shortcut)" option then appears and, on Start,
+WatchMeRun opens `shortcuts://run-shortcut?name=<name>&input=<json>` with the
+picked workout as input:
+
+```json
+{
+  "type": "distance_time",
+  "label": "Easy 6mi",
+  "detail": "z2",
+  "goal": { "kind": "distance", "value": 6, "unit": "mi" }
+}
+```
+
+`goal` is parsed from the workout text for you: `{ "kind": "distance", "value",
+"unit": "mi"|"km" }`, `{ "kind": "time", "minutes" }`, or `{ "kind": "open" }`
+when nothing parseable is found. The Shortcut (built in the Shortcuts app, run
+from the watch) should:
+
+1. **Get Dictionary from Input** → read `goal` (and `label` for display).
+2. **If** `goal.kind` is `distance`/`time` → **Start Workout** (Outdoor Run)
+   with that distance/time goal; otherwise start an open Outdoor Run.
+
+Strava and Nike Run Club have no equivalent — they can't accept the workout on
+start (Strava can only be retitled *after* upload via its API + OAuth).
 
 ## Curl reference
 
