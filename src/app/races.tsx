@@ -5,12 +5,14 @@ import { Card } from '@/components/card';
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { fetchRaces } from '@/lib/api';
 import { isConfigured } from '@/lib/config';
 import { daysUntil, fullDate, relativeDay } from '@/lib/date';
 import type { Race } from '@/lib/types';
 
 export default function RacesScreen() {
+  const theme = useTheme();
   const [races, setRaces] = useState<Race[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -66,7 +68,7 @@ export default function RacesScreen() {
                   {race.name}
                 </ThemedText>
                 {race.is_a_race ? (
-                  <View style={styles.badge}>
+                  <View style={[styles.badge, { backgroundColor: theme.accent }]}>
                     <ThemedText type="smallBold" style={styles.badgeText}>
                       A-RACE
                     </ThemedText>
@@ -116,7 +118,6 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   badge: {
-    backgroundColor: '#3c87f7',
     borderRadius: Spacing.one,
     paddingHorizontal: Spacing.two,
     paddingVertical: 2,
