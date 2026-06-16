@@ -1,4 +1,4 @@
-import { RUNNER_ID, FUNCTIONS_URL } from '@/lib/config';
+import { RUNNER_ID, FUNCTIONS_URL, RUNNER_TOKEN } from '@/lib/config';
 import { supabase } from '@/lib/supabase';
 import type { LivePosition, NowPlaying, Race, RunEvent, ScheduleDay } from '@/lib/types';
 
@@ -74,4 +74,33 @@ export async function fetchNowPlaying(): Promise<NowPlaying> {
   const res = await fetch(`${FUNCTIONS_URL}/now-playing?runner_id=${RUNNER_ID}`);
   if (!res.ok) return { isPlaying: false };
   return (await res.json()) as NowPlaying;
+}
+
+/**
+ * Fire a run start/stop beacon — the same `run-event` Edge Function the iOS
+ * Shortcut hits. Runner-only: requires RUNNER_TOKEN (the runner's own build).
+ * The function resolves runner_id from the token, snapshots now-playing on
+ * start, and notifies watchers, so there's nothing else to pass.
+ */
+export async function sendRunEvent(
+  eventType: 'start' | 'stop',
+  opts: { workoutType?: string; workoutLabel?: string } = {},
+): Promise<void> {
+  if (!RUNNER_TOKEN) throw new Error('No runner token configured on this device.');
+  const res = await fetch(`${FUNCTIONS_URL}/run-event`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${RUNNER_TOKEN}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      event_type: eventType,
+      workout_type: opts.workoutType,
+      workout_label: opts.workoutLabel,
+    }),
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    throw new Error(`run-event failed (${res.status}): ${detail}`);
+  }
 }

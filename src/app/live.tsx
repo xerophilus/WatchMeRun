@@ -5,11 +5,12 @@ import { StyleSheet, View } from 'react-native';
 
 import { Card } from '@/components/card';
 import { Screen } from '@/components/screen';
+import { StartRunControl } from '@/components/start-run-control';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { fetchLatestPosition, fetchLatestRunEvent, fetchNowPlaying } from '@/lib/api';
-import { RUNNER_ID, isConfigured } from '@/lib/config';
+import { RUNNER_ID, isConfigured, isRunner } from '@/lib/config';
 import { clockTime, elapsedSince } from '@/lib/date';
 import { supabase } from '@/lib/supabase';
 import type { LivePosition, NowPlaying, RunEvent } from '@/lib/types';
@@ -111,6 +112,9 @@ export default function LiveScreen() {
         </Card>
       ) : (
         <>
+          {/* Runner-only: start/stop a tracked run from the app itself. */}
+          {isRunner ? <StartRunControl runEvent={runEvent} onChanged={load} /> : null}
+
           {/* Run status card */}
           <Card highlighted={isRunning}>
             <View style={styles.statusRow}>
