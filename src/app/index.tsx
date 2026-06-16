@@ -2,13 +2,14 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { Card } from '@/components/card';
+import { ScheduleEditor } from '@/components/schedule-editor';
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { usePushRegistration } from '@/hooks/use-push';
 import { fetchLatestWeek } from '@/lib/api';
-import { isConfigured } from '@/lib/config';
+import { isConfigured, isRunner } from '@/lib/config';
 import { fullDate, isToday, weekdayShort } from '@/lib/date';
 import type { ScheduleDay, WorkoutType } from '@/lib/types';
 
@@ -123,6 +124,9 @@ export default function ThisWeekScreen() {
           );
         })
       )}
+      {isConfigured && isRunner && !loading && !error ? (
+        <ScheduleEditor week={days} weekStart={days[0]?.week_start ?? null} onSaved={load} />
+      ) : null}
     </Screen>
   );
 }

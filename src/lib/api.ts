@@ -104,3 +104,29 @@ export async function sendRunEvent(
     throw new Error(`run-event failed (${res.status}): ${detail}`);
   }
 }
+
+/**
+ * Replace a whole week's schedule. Runner-only: hits the same `update-week`
+ * Edge Function Ben used to curl, which resolves the runner from RUNNER_TOKEN,
+ * wipes the existing rows for that week_start, and inserts the new set.
+ */
+export async function updateWeek(
+  weekStart: string,
+  days: { day_date: string; title: string; detail?: string; workout_type?: string }[],
+): Promise<number> {
+  if (!RUNNER_TOKEN) throw new Error('No runner token configured on this device.');
+  const res = await fetch(`${FUNCTIONS_URL}/update-week`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${RUNNER_TOKEN}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ week_start: weekStart, days }),
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    throw new Error(`update-week failed (${res.status}): ${detail}`);
+  }
+  const body = (await res.json().catch(() => ({}))) as { count?: number };
+  return body.count ?? days.length;
+}

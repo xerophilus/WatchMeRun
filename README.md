@@ -144,6 +144,30 @@ has no iPhone URL scheme, so that option is beacon-only. The `strava`/
 `nikerunclub` schemes are declared in `app.json` under
 `LSApplicationQueriesSchemes` so `canOpenURL` works.
 
+### In-app schedule editor (runner-only)
+
+The This Week screen shows an **Edit schedule** card on a build that carries a
+write token (`EXPO_PUBLIC_RUNNER_TOKEN`) — the same gate as the Start button, so
+watchers never see it. Tap it, paste a week, check the live preview, and Save;
+it POSTs to the same `update-week` function (the curl below is no longer
+required). Opening it pre-fills the current week so you can just tweak.
+
+Two paste formats, auto-detected:
+
+- **Line format** — one day per line, `date | workout | detail`:
+  ```
+  Week of 2026-06-15
+  2026-06-15 | Easy 6mi | z2
+  2026-06-16 | Rest
+  2026-06-17 | Intervals 6x800m | track
+  ```
+  Blank lines and `#` comments are ignored. The optional `Week of …` header sets
+  `week_start` (otherwise the earliest day wins). `workout_type` is inferred
+  (`rest`/`off` → rest, a parseable distance/time → distance_time, else custom);
+  add a 4th `| type` field to override.
+- **JSON** — the same `{ week_start?, days: [...] }` (or bare days array) shape
+  `update-week` already takes, for pasting straight from a tool.
+
 #### Carrying the picked workout into Apple's Workout app (Shortcut bridge)
 
 The selection can only be *handed to* the run app for Apple's Workout app, via a
