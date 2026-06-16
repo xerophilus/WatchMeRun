@@ -2,10 +2,13 @@ import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { useColorScheme } from 'react-native';
 
 import { Colors } from '@/constants/theme';
+import { useInviteLinks } from '@/hooks/use-invite-links';
 
 export default function AppTabs() {
   const scheme = useColorScheme();
   const colors = Colors[scheme === 'unspecified' ? 'light' : scheme];
+  // Redeem watchmerun://invite?code=… links once we're signed in.
+  useInviteLinks();
 
   return (
     <NativeTabs

@@ -228,7 +228,13 @@ export async function fetchLatestPosition(
 }
 
 export async function fetchNowPlaying(runnerId: string): Promise<NowPlaying> {
-  const res = await fetch(`${FUNCTIONS_URL}/now-playing?runner_id=${runnerId}`);
+  // Send the viewer's token so the endpoint can enforce the follow gate; a
+  // forbidden viewer just gets "nothing playing" rather than the track.
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  const res = await fetch(`${FUNCTIONS_URL}/now-playing?runner_id=${runnerId}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  });
   if (!res.ok) return { isPlaying: false };
   return (await res.json()) as NowPlaying;
 }
