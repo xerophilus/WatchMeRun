@@ -50,6 +50,25 @@ export async function provisionRunner(profile?: {
   return out.runner ?? null;
 }
 
+// --- Spotify connect --------------------------------------------------------
+
+/** Authorize URL for the signed-in runner to connect their Spotify account. */
+export async function getSpotifyConnectUrl(): Promise<string> {
+  const out = await authedFetch<{ url: string }>('spotify-connect');
+  return out.url;
+}
+
+/** Whether the signed-in runner has Spotify connected. */
+export async function fetchSpotifyStatus(): Promise<boolean> {
+  const out = await authedFetch<{ connected: boolean }>('spotify-status', { action: 'status' });
+  return out.connected;
+}
+
+/** Remove the signed-in runner's Spotify connection. */
+export async function disconnectSpotify(): Promise<void> {
+  await authedFetch('spotify-status', { action: 'disconnect' });
+}
+
 // --- Social graph -----------------------------------------------------------
 
 /** Runners I watch (approved follows where I'm the watcher). */

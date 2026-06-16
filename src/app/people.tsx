@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, Share, StyleSheet, TextInput, View } from
 
 import { Card } from '@/components/card';
 import { Screen } from '@/components/screen';
+import { SpotifyConnect } from '@/components/spotify-connect';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -272,6 +273,9 @@ export default function PeopleScreen() {
           ))
         )}
       </Card>
+
+      {/* Personal: connect your own Spotify */}
+      <SpotifyConnect />
 
       <Pressable onPress={signOut} style={styles.signOut}>
         <ThemedText type="small" themeColor="textSecondary">

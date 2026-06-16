@@ -27,3 +27,14 @@ verify_jwt = false
 
 [functions.redeem-invite]
 verify_jwt = false
+
+# Spotify connect: verify JWTs themselves (connect/status), and the callback is
+# hit by Spotify with no JWT at all, so the platform gate stays off.
+[functions.spotify-connect]
+verify_jwt = false
+
+[functions.spotify-callback]
+verify_jwt = false
+
+[functions.spotify-status]
+verify_jwt = false
