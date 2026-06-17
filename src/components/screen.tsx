@@ -44,7 +44,9 @@ export function Screen({ title, subtitle, refreshing, onRefresh, children }: Scr
       }>
       <ThemedView style={styles.inner}>
         <ThemedView style={styles.header}>
-          <ThemedText type="subtitle">{title}</ThemedText>
+          <ThemedText type="title" style={styles.title}>
+            {title}
+          </ThemedText>
           {typeof subtitle === 'string' ? (
             <ThemedText themeColor="textSecondary">{subtitle}</ThemedText>
           ) : (
@@ -72,5 +74,8 @@ const styles = StyleSheet.create({
   header: {
     gap: Spacing.one,
     paddingBottom: Spacing.two,
+  },
+  title: {
+    textTransform: 'uppercase',
   },
 });

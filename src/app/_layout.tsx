@@ -1,3 +1,11 @@
+import { Anton_400Regular } from '@expo-google-fonts/anton';
+import {
+  Archivo_400Regular,
+  Archivo_500Medium,
+  Archivo_600SemiBold,
+  Archivo_700Bold,
+} from '@expo-google-fonts/archivo';
+import { useFonts } from 'expo-font';
 import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
 import { useColorScheme } from 'react-native';
 
@@ -12,6 +20,17 @@ export default function TabLayout() {
   // Tapping a run notification opens the Live tab. (Push registration happens
   // inside the app once signed in — see usePushRegistration.)
   useNotificationRouting();
+
+  // Brand fonts (Anton display + Archivo body). Hold render until loaded so the
+  // first frame isn't a flash of system font; the native splash stays up.
+  const [fontsLoaded] = useFonts({
+    Anton_400Regular,
+    Archivo_400Regular,
+    Archivo_500Medium,
+    Archivo_600SemiBold,
+    Archivo_700Bold,
+  });
+  if (!fontsLoaded) return null;
 
   return (
     <SessionProvider>

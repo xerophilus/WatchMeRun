@@ -5,7 +5,7 @@ import { Card } from '@/components/card';
 import { PersonSwitcher } from '@/components/person-switcher';
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Font, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { fetchRaces } from '@/lib/api';
 import { daysUntil, fullDate, relativeDay } from '@/lib/date';
@@ -83,7 +83,11 @@ export default function RacesScreen() {
           </ThemedText>
         </Card>
       ) : (
-        ordered.map((race) => {
+        <>
+          <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionLabel}>
+            FULL SCHEDULE
+          </ThemedText>
+          {ordered.map((race) => {
           const isPast = daysUntil(race.race_date) < 0;
           return (
             <Card key={race.id} highlighted={Boolean(race.is_a_race) && !isPast} style={isPast && styles.past}>
@@ -117,8 +121,9 @@ export default function RacesScreen() {
                 </ThemedText>
               ) : null}
             </Card>
-          );
-        })
+            );
+          })}
+        </>
       )}
     </Screen>
   );
@@ -130,8 +135,9 @@ const styles = StyleSheet.create({
   hero: { borderRadius: Spacing.four, padding: Spacing.four },
   heroKicker: { color: '#ffffff', opacity: 0.85, fontSize: 11, letterSpacing: 1.6 },
   heroDaysRow: { flexDirection: 'row', alignItems: 'baseline', gap: Spacing.two, marginTop: Spacing.one },
-  heroDays: { color: '#ffffff', fontSize: 72, lineHeight: 72, fontWeight: '800' },
+  heroDays: { color: '#ffffff', fontFamily: Font.display, fontSize: 76, lineHeight: 64, letterSpacing: 0.5 },
   heroDaysUnit: { color: '#ffffff', opacity: 0.9, fontSize: 18, fontWeight: '600' },
+  sectionLabel: { letterSpacing: 1.6, marginTop: Spacing.one },
   heroName: { color: '#ffffff', fontWeight: '700', fontSize: 20, marginTop: Spacing.three },
   heroMeta: { color: '#ffffff', opacity: 0.9, marginTop: Spacing.half },
   headerRow: {

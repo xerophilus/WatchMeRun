@@ -5,7 +5,7 @@ import MapView, { Marker, Polyline, PROVIDER_DEFAULT } from 'react-native-maps';
 
 import { LiveDot } from '@/components/live-dot';
 import { ThemedText } from '@/components/themed-text';
-import { Spacing, withAlpha } from '@/constants/theme';
+import { Font, Spacing, withAlpha } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -193,6 +193,6 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   stat: { flex: 1 },
-  statNum: { fontSize: 26, lineHeight: 28, fontWeight: '800', letterSpacing: 0.5 },
+  statNum: { fontFamily: Font.display, fontSize: 28, lineHeight: 28, letterSpacing: 0.5 },
   statLabel: { fontSize: 10, letterSpacing: 1.2, marginTop: 4 },
 });

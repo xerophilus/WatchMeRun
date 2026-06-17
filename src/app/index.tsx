@@ -7,7 +7,7 @@ import { PersonSwitcher } from '@/components/person-switcher';
 import { ScheduleEditor } from '@/components/schedule-editor';
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
-import { Spacing, withAlpha } from '@/constants/theme';
+import { Font, Spacing, withAlpha } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { usePushRegistration } from '@/hooks/use-push';
 import { fetchLatestWeek } from '@/lib/api';
@@ -185,11 +185,11 @@ const styles = StyleSheet.create({
   sectionLabel: { letterSpacing: 1.4 },
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
   milesRow: { flexDirection: 'row', alignItems: 'baseline', gap: Spacing.two, marginTop: Spacing.one },
-  milesNum: { fontSize: 60, lineHeight: 60, fontWeight: '800', letterSpacing: 0.5 },
+  milesNum: { fontFamily: Font.display, fontSize: 64, lineHeight: 58, letterSpacing: 1 },
   milesUnit: { fontSize: 18, fontWeight: '600' },
   stats: { flexDirection: 'row', gap: Spacing.four },
   stat: { alignItems: 'flex-end' },
-  statNum: { fontSize: 30, lineHeight: 30, fontWeight: '800' },
+  statNum: { fontFamily: Font.display, fontSize: 32, lineHeight: 30 },
   statLabel: { fontSize: 11, letterSpacing: 1, marginTop: Spacing.one },
   row: { flexDirection: 'row', gap: Spacing.three, alignItems: 'center' },
   body: { flex: 1, gap: Spacing.half },

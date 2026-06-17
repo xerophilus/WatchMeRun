@@ -9,30 +9,40 @@ import { Platform } from 'react-native';
 
 export const Colors = {
   light: {
-    text: '#000000',
-    background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
-    textSecondary: '#60646C',
-    /** Brand teal — chrome (links, progress, active tab, chips). */
-    tint: '#006B64',
-    /** Brand orange — "active now" energy (live run, today). */
-    accent: '#F26B21',
+    text: '#0A0A0B',
+    background: '#F3F3F1',
+    backgroundElement: '#FFFFFF',
+    backgroundSelected: '#EFEFEC',
+    textSecondary: 'rgba(10,10,11,0.55)',
+    /** Single brand accent (blue) — active states, route, today, A-race. */
+    tint: '#3B82F6',
+    accent: '#3B82F6',
   },
   dark: {
-    text: '#ffffff',
-    background: '#000000',
-    backgroundElement: '#212225',
-    backgroundSelected: '#2E3135',
-    textSecondary: '#B0B4BA',
-    /** Brand teal — brightened so it reads on a black background. */
-    tint: '#2FB6AB',
-    /** Brand orange — brightened for dark mode. */
-    accent: '#FF7A33',
+    text: '#FFFFFF',
+    background: '#0A0A0B',
+    backgroundElement: '#161619',
+    backgroundSelected: '#232328',
+    textSecondary: 'rgba(255,255,255,0.56)',
+    tint: '#3B82F6',
+    accent: '#3B82F6',
   },
 } as const;
 
 export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
+
+/**
+ * Brand fonts (loaded in the root layout via expo-google-fonts). Anton is the
+ * condensed uppercase display face (screen titles + big numbers); Archivo is the
+ * body face. On React Native each weight is its own family, so map weight → name.
+ */
+export const Font = {
+  display: 'Anton_400Regular',
+  regular: 'Archivo_400Regular',
+  medium: 'Archivo_500Medium',
+  semibold: 'Archivo_600SemiBold',
+  bold: 'Archivo_700Bold',
+} as const;
 
 /** Add an alpha channel to a `#rrggbb` hex color, returning an `rgba()` string. */
 export function withAlpha(hex: string, alpha: number): string {
