@@ -1,28 +1,28 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { Card } from '@/components/card';
+import { IconTile } from '@/components/icon-tile';
 import { PersonSwitcher } from '@/components/person-switcher';
 import { ScheduleEditor } from '@/components/schedule-editor';
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Spacing, withAlpha } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { usePushRegistration } from '@/hooks/use-push';
 import { fetchLatestWeek } from '@/lib/api';
 import { fullDate, isToday, weekdayShort } from '@/lib/date';
+import { parseRunGoal } from '@/lib/run-apps';
 import { useSession } from '@/lib/session';
-import type { ScheduleDay, WorkoutType } from '@/lib/types';
+import type { ScheduleDay } from '@/lib/types';
 
-const WORKOUT_GLYPH: Record<WorkoutType, string> = {
-  distance_time: '🏃',
-  custom: '⚡️',
-  rest: '😴',
-  open: '🧭',
-};
+const KM_TO_MI = 0.621371;
 
-function glyph(type: string | null): string {
-  return (type && WORKOUT_GLYPH[type as WorkoutType]) || '🏃';
+/** Best-effort planned miles for a day from its workout text (km → mi). */
+function dayMiles(day: ScheduleDay): number {
+  const goal = parseRunGoal(day.workout_type ?? undefined, day.title, day.detail);
+  if (goal.kind !== 'distance') return 0;
+  return goal.unit === 'km' ? goal.value * KM_TO_MI : goal.value;
 }
 
 export default function ThisWeekScreen() {
@@ -59,6 +59,12 @@ export default function ThisWeekScreen() {
     setRefreshing(false);
   }, [load]);
 
+  const summary = useMemo(() => {
+    const miles = days.reduce((sum, d) => sum + dayMiles(d), 0);
+    const runs = days.filter((d) => d.workout_type !== 'rest').length;
+    return { miles: Math.round(miles), runs, rests: days.length - runs };
+  }, [days]);
+
   const subtitle = isSelf
     ? 'Your training schedule'
     : `${viewedRunner?.name ?? 'Their'}'s training schedule`;
@@ -91,37 +97,60 @@ export default function ThisWeekScreen() {
           </ThemedText>
         </Card>
       ) : (
-        days.map((day) => {
-          const today = isToday(day.day_date);
-          return (
-            <Card key={day.id} highlighted={today}>
-              <View style={styles.row}>
-                <ThemedText style={styles.glyph}>{glyph(day.workout_type)}</ThemedText>
-                <View style={styles.body}>
-                  <View style={styles.titleRow}>
-                    <ThemedText
-                      themeColor="textSecondary"
-                      type="smallBold"
-                      style={today ? { color: theme.accent } : undefined}>
-                      {today ? 'TODAY' : weekdayShort(day.day_date).toUpperCase()}
-                    </ThemedText>
-                    <ThemedText themeColor="textSecondary" type="small">
-                      {fullDate(day.day_date)}
-                    </ThemedText>
-                  </View>
-                  <ThemedText type="default" style={styles.workoutTitle}>
-                    {day.title}
+        <>
+          {/* Week summary — planned miles + run/rest count */}
+          <Card>
+            <View style={styles.summaryRow}>
+              <View>
+                <SectionLabel>MILES PLANNED</SectionLabel>
+                <View style={styles.milesRow}>
+                  <ThemedText style={[styles.milesNum, { color: theme.accent }]}>
+                    {summary.miles}
                   </ThemedText>
-                  {day.detail ? (
-                    <ThemedText type="small" themeColor="textSecondary">
-                      {day.detail}
-                    </ThemedText>
-                  ) : null}
+                  <ThemedText themeColor="textSecondary" style={styles.milesUnit}>
+                    mi
+                  </ThemedText>
                 </View>
               </View>
-            </Card>
-          );
-        })
+              <View style={styles.stats}>
+                <Stat n={summary.runs} label="RUNS" />
+                <Stat n={summary.rests} label="REST" />
+              </View>
+            </View>
+          </Card>
+
+          {days.map((day) => {
+            const today = isToday(day.day_date);
+            return (
+              <Card
+                key={day.id}
+                highlighted={today}
+                style={today ? { backgroundColor: withAlpha(theme.accent, 0.12) } : undefined}>
+                <View style={styles.row}>
+                  <IconTile workoutType={day.workout_type} tint={today || day.workout_type !== 'rest'} />
+                  <View style={styles.body}>
+                    <View style={styles.titleRow}>
+                      <ThemedText
+                        type="smallBold"
+                        themeColor="textSecondary"
+                        style={[styles.dayLabel, today ? { color: theme.accent } : undefined]}>
+                        {today ? 'TODAY' : weekdayShort(day.day_date).toUpperCase()} · {fullDate(day.day_date)}
+                      </ThemedText>
+                    </View>
+                    <ThemedText type="default" style={styles.workoutTitle}>
+                      {day.title}
+                    </ThemedText>
+                    {day.detail ? (
+                      <ThemedText type="small" themeColor="textSecondary">
+                        {day.detail}
+                      </ThemedText>
+                    ) : null}
+                  </View>
+                </View>
+              </Card>
+            );
+          })}
+        </>
       )}
 
       {isSelf && !loading && !error ? (
@@ -131,16 +160,40 @@ export default function ThisWeekScreen() {
   );
 }
 
+function SectionLabel({ children }: { children: string }) {
+  return (
+    <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionLabel}>
+      {children}
+    </ThemedText>
+  );
+}
+
+function Stat({ n, label }: { n: number; label: string }) {
+  return (
+    <View style={styles.stat}>
+      <ThemedText style={styles.statNum}>{n}</ThemedText>
+      <ThemedText type="smallBold" themeColor="textSecondary" style={styles.statLabel}>
+        {label}
+      </ThemedText>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   loader: { marginTop: Spacing.four },
   banner: { borderColor: '#f59e0b', borderWidth: 2, gap: Spacing.half },
-  row: { flexDirection: 'row', gap: Spacing.three, alignItems: 'flex-start' },
-  glyph: { fontSize: 28, lineHeight: 34 },
+  sectionLabel: { letterSpacing: 1.4 },
+  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
+  milesRow: { flexDirection: 'row', alignItems: 'baseline', gap: Spacing.two, marginTop: Spacing.one },
+  milesNum: { fontSize: 60, lineHeight: 60, fontWeight: '800', letterSpacing: 0.5 },
+  milesUnit: { fontSize: 18, fontWeight: '600' },
+  stats: { flexDirection: 'row', gap: Spacing.four },
+  stat: { alignItems: 'flex-end' },
+  statNum: { fontSize: 30, lineHeight: 30, fontWeight: '800' },
+  statLabel: { fontSize: 11, letterSpacing: 1, marginTop: Spacing.one },
+  row: { flexDirection: 'row', gap: Spacing.three, alignItems: 'center' },
   body: { flex: 1, gap: Spacing.half },
-  titleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
+  titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  dayLabel: { letterSpacing: 1.2, fontSize: 11 },
   workoutTitle: { fontWeight: '700' },
 });

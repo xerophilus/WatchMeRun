@@ -4,9 +4,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { Card } from '@/components/card';
+import { LiveDot } from '@/components/live-dot';
 import { PersonSwitcher } from '@/components/person-switcher';
 import { Screen } from '@/components/screen';
 import { StartRunControl } from '@/components/start-run-control';
+import { TrackingMap } from '@/components/tracking-map';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -103,6 +105,10 @@ export default function LiveScreen() {
   }, [load]);
 
   const isRunning = runEvent?.event_type === 'start';
+  const elapsedSec =
+    isRunning && runEvent?.created_at
+      ? Math.max(0, Math.floor((Date.now() - new Date(runEvent.created_at).getTime()) / 1000))
+      : 0;
   const startTrack = isRunning && runEvent?.track_snapshot?.isPlaying ? runEvent.track_snapshot : null;
   const subtitle = isSelf
     ? "What you're up to right now"
@@ -118,9 +124,7 @@ export default function LiveScreen() {
       {/* Run status card */}
       <Card highlighted={isRunning}>
         <View style={styles.statusRow}>
-          <View
-            style={[styles.dot, { backgroundColor: isRunning ? theme.accent : theme.textSecondary }]}
-          />
+          <LiveDot color={isRunning ? theme.accent : theme.textSecondary} />
           <ThemedText type="default" style={styles.statusText}>
             {isRunning ? 'Running' : 'Resting'}
           </ThemedText>
@@ -155,14 +159,13 @@ export default function LiveScreen() {
             LIVE LOCATION
           </ThemedText>
           {position ? (
-            // TODO(v2): drop a react-native-maps <MapView> here with a marker
-            // at {position.lat, position.lng} and a breadcrumb trail.
-            <View>
-              <ThemedText type="default">
-                {position.lat.toFixed(5)}, {position.lng.toFixed(5)}
-              </ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
-                Updated {clockTime(position.recorded_at)} · map coming in v2
+            // TODO(v2): swap the stylized streets for a react-native-maps
+            // <MapView> anchored at {position.lat, position.lng} with a
+            // breadcrumb trail; the LIVE badge + stats overlay stay.
+            <View style={styles.mapWrap}>
+              <TrackingMap elapsedSec={elapsedSec} />
+              <ThemedText type="small" themeColor="textSecondary" style={styles.mapCaption}>
+                Updated {clockTime(position.recorded_at)} · {position.lat.toFixed(4)}, {position.lng.toFixed(4)}
               </ThemedText>
             </View>
           ) : (
@@ -226,9 +229,10 @@ function ProgressBar({ progressMs, durationMs }: { progressMs: number; durationM
 }
 
 const styles = StyleSheet.create({
-  statusRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
-  dot: { width: 12, height: 12, borderRadius: 6 },
+  statusRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
   statusText: { fontWeight: '700', fontSize: 20 },
+  mapWrap: { gap: Spacing.two },
+  mapCaption: { textAlign: 'center' },
   workoutLabel: { marginTop: Spacing.two, fontWeight: '600' },
   startTrack: { marginTop: Spacing.one },
   sectionLabel: { marginBottom: Spacing.two, letterSpacing: 1 },
