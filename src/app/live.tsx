@@ -4,14 +4,17 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { Card } from '@/components/card';
+import { LiveDot } from '@/components/live-dot';
 import { PersonSwitcher } from '@/components/person-switcher';
 import { Screen } from '@/components/screen';
 import { StartRunControl } from '@/components/start-run-control';
+import { TrackingMap } from '@/components/tracking-map';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { fetchLatestPosition, fetchLatestRunEvent, fetchNowPlaying } from '@/lib/api';
 import { clockTime, elapsedSince } from '@/lib/date';
+import { parseRunGoal } from '@/lib/run-apps';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import type { LivePosition, NowPlaying, RunEvent } from '@/lib/types';
@@ -39,6 +42,8 @@ export default function LiveScreen() {
   // Locally-advanced playback position for a smooth progress bar between polls.
   const [progressMs, setProgressMs] = useState(0);
   const lastSync = useRef<number>(Date.now());
+  // Re-render once a second so elapsed time + run progress advance between polls.
+  const [, setTick] = useState(0);
 
   const load = useCallback(async () => {
     if (!targetId) return;
@@ -96,6 +101,13 @@ export default function LiveScreen() {
     return () => clearInterval(id);
   }, [nowPlaying]);
 
+  // Tick every second while a run is in progress.
+  useEffect(() => {
+    if (runEvent?.event_type !== 'start') return;
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [runEvent]);
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await load();
@@ -103,6 +115,10 @@ export default function LiveScreen() {
   }, [load]);
 
   const isRunning = runEvent?.event_type === 'start';
+  const elapsedSec =
+    isRunning && runEvent?.created_at
+      ? Math.max(0, Math.floor((Date.now() - new Date(runEvent.created_at).getTime()) / 1000))
+      : 0;
   const startTrack = isRunning && runEvent?.track_snapshot?.isPlaying ? runEvent.track_snapshot : null;
   const subtitle = isSelf
     ? "What you're up to right now"
@@ -118,9 +134,7 @@ export default function LiveScreen() {
       {/* Run status card */}
       <Card highlighted={isRunning}>
         <View style={styles.statusRow}>
-          <View
-            style={[styles.dot, { backgroundColor: isRunning ? theme.accent : theme.textSecondary }]}
-          />
+          <LiveDot color={isRunning ? theme.accent : theme.textSecondary} />
           <ThemedText type="default" style={styles.statusText}>
             {isRunning ? 'Running' : 'Resting'}
           </ThemedText>
@@ -141,6 +155,7 @@ export default function LiveScreen() {
             {runEvent.workout_label}
           </ThemedText>
         ) : null}
+        {isRunning && runEvent ? <RunProgress runEvent={runEvent} elapsedSec={elapsedSec} /> : null}
         {startTrack ? (
           <ThemedText type="small" themeColor="textSecondary" style={styles.startTrack}>
             🎧 Headed out to {startTrack.track} — {startTrack.artist}
@@ -155,14 +170,13 @@ export default function LiveScreen() {
             LIVE LOCATION
           </ThemedText>
           {position ? (
-            // TODO(v2): drop a react-native-maps <MapView> here with a marker
-            // at {position.lat, position.lng} and a breadcrumb trail.
-            <View>
-              <ThemedText type="default">
-                {position.lat.toFixed(5)}, {position.lng.toFixed(5)}
-              </ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
-                Updated {clockTime(position.recorded_at)} · map coming in v2
+            // TODO(v2): swap the stylized streets for a react-native-maps
+            // <MapView> anchored at {position.lat, position.lng} with a
+            // breadcrumb trail; the LIVE badge + stats overlay stay.
+            <View style={styles.mapWrap}>
+              <TrackingMap elapsedSec={elapsedSec} />
+              <ThemedText type="small" themeColor="textSecondary" style={styles.mapCaption}>
+                Updated {clockTime(position.recorded_at)} · {position.lat.toFixed(4)}, {position.lng.toFixed(4)}
               </ThemedText>
             </View>
           ) : (
@@ -205,6 +219,88 @@ export default function LiveScreen() {
   );
 }
 
+// ~9:30/mi easy pace — matches the tracking-map estimate. Used to turn a
+// distance goal into a target time until real GPS distance is available.
+const SEC_PER_MI = 570;
+const KM_TO_MI = 0.621371;
+
+function fmtClock(sec: number): string {
+  const t = Math.max(0, Math.floor(sec));
+  const h = Math.floor(t / 3600);
+  const m = Math.floor((t % 3600) / 60);
+  const s = t % 60;
+  const mm = h ? String(m).padStart(2, '0') : String(m);
+  return `${h ? `${h}:` : ''}${mm}:${String(s).padStart(2, '0')}`;
+}
+
+const METERS_PER_MI = 1609.344;
+
+/**
+ * Progress toward the planned workout. Exact for a time goal, and exact for a
+ * distance goal once GPS supplies `distanceMeters`; until then a distance goal
+ * is estimated from an easy pace. Nothing to show for an open/unplanned run.
+ */
+function RunProgress({
+  runEvent,
+  elapsedSec,
+  distanceMeters = null,
+}: {
+  runEvent: RunEvent;
+  elapsedSec: number;
+  distanceMeters?: number | null;
+}) {
+  const theme = useTheme();
+  const goal = parseRunGoal(runEvent.workout_type ?? undefined, runEvent.workout_label);
+
+  let pct: number | null = null;
+  let left = '';
+  let right = '';
+  let estimated = false;
+
+  if (goal.kind === 'time') {
+    const targetSec = goal.minutes * 60;
+    pct = (elapsedSec / targetSec) * 100;
+    left = fmtClock(elapsedSec);
+    right = `${fmtClock(targetSec)} goal`;
+  } else if (goal.kind === 'distance') {
+    const goalMi = goal.unit === 'km' ? goal.value * KM_TO_MI : goal.value;
+    if (distanceMeters != null) {
+      const doneMi = distanceMeters / METERS_PER_MI;
+      pct = (doneMi / goalMi) * 100;
+      left = `${doneMi.toFixed(2)} mi`;
+      right = `${+goalMi.toFixed(1)} mi goal`;
+    } else {
+      const targetSec = goalMi * SEC_PER_MI;
+      pct = (elapsedSec / targetSec) * 100;
+      left = fmtClock(elapsedSec);
+      right = `~${fmtClock(targetSec)} goal`;
+      estimated = true;
+    }
+  }
+  if (pct == null) return null;
+
+  return (
+    <View style={styles.runProgress}>
+      <View style={[styles.runTrack, { backgroundColor: theme.backgroundSelected }]}>
+        <View
+          style={[styles.runFill, { width: `${Math.min(100, pct)}%`, backgroundColor: theme.accent }]}
+        />
+      </View>
+      <View style={styles.timeRow}>
+        <ThemedText type="smallBold">{left}</ThemedText>
+        <ThemedText type="small" themeColor="textSecondary">
+          {right}
+        </ThemedText>
+      </View>
+      {estimated ? (
+        <ThemedText type="small" themeColor="textSecondary">
+          Estimated from the plan · real pace &amp; distance land with GPS.
+        </ThemedText>
+      ) : null}
+    </View>
+  );
+}
+
 function ProgressBar({ progressMs, durationMs }: { progressMs: number; durationMs: number }) {
   const theme = useTheme();
   const pct = durationMs > 0 ? Math.min(100, (progressMs / durationMs) * 100) : 0;
@@ -226,10 +322,14 @@ function ProgressBar({ progressMs, durationMs }: { progressMs: number; durationM
 }
 
 const styles = StyleSheet.create({
-  statusRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
-  dot: { width: 12, height: 12, borderRadius: 6 },
+  statusRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
   statusText: { fontWeight: '700', fontSize: 20 },
+  mapWrap: { gap: Spacing.two },
+  mapCaption: { textAlign: 'center' },
   workoutLabel: { marginTop: Spacing.two, fontWeight: '600' },
+  runProgress: { marginTop: Spacing.three, gap: Spacing.one },
+  runTrack: { height: 8, borderRadius: 4, overflow: 'hidden' },
+  runFill: { height: 8, borderRadius: 4 },
   startTrack: { marginTop: Spacing.one },
   sectionLabel: { marginBottom: Spacing.two, letterSpacing: 1 },
   npRow: { flexDirection: 'row', gap: Spacing.three, alignItems: 'center' },

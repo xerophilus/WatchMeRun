@@ -49,9 +49,31 @@ export default function RacesScreen() {
   const viewedRunner = isSelf ? me : watching.find((w) => w.id === targetId);
   const subtitle = isSelf ? 'The season ahead' : `${viewedRunner?.name ?? 'Their'}'s season`;
 
+  // The next upcoming A-race anchors the season-goal hero (soonest first).
+  const goal = upcoming.find((r) => r.is_a_race);
+
   return (
     <Screen title="Races" subtitle={subtitle} refreshing={refreshing} onRefresh={onRefresh}>
       <PersonSwitcher />
+      {goal ? (
+        <View style={[styles.hero, { backgroundColor: theme.accent }]}>
+          <ThemedText type="smallBold" style={styles.heroKicker}>
+            SEASON GOAL · A-RACE
+          </ThemedText>
+          <View style={styles.heroDaysRow}>
+            <ThemedText style={styles.heroDays}>{Math.max(0, daysUntil(goal.race_date))}</ThemedText>
+            <ThemedText style={styles.heroDaysUnit}>days out</ThemedText>
+          </View>
+          <ThemedText type="default" style={styles.heroName}>
+            {goal.name}
+          </ThemedText>
+          <ThemedText type="small" style={styles.heroMeta}>
+            {fullDate(goal.race_date)}
+            {goal.distance ? ` · ${goal.distance}` : ''}
+            {goal.location ? ` · ${goal.location}` : ''}
+          </ThemedText>
+        </View>
+      ) : null}
       {loading ? (
         <ActivityIndicator style={styles.loader} />
       ) : ordered.length === 0 ? (
@@ -105,6 +127,13 @@ export default function RacesScreen() {
 const styles = StyleSheet.create({
   loader: { marginTop: Spacing.four },
   past: { opacity: 0.55 },
+  hero: { borderRadius: Spacing.four, padding: Spacing.four },
+  heroKicker: { color: '#ffffff', opacity: 0.85, fontSize: 11, letterSpacing: 1.6 },
+  heroDaysRow: { flexDirection: 'row', alignItems: 'baseline', gap: Spacing.two, marginTop: Spacing.one },
+  heroDays: { color: '#ffffff', fontSize: 72, lineHeight: 72, fontWeight: '800' },
+  heroDaysUnit: { color: '#ffffff', opacity: 0.9, fontSize: 18, fontWeight: '600' },
+  heroName: { color: '#ffffff', fontWeight: '700', fontSize: 20, marginTop: Spacing.three },
+  heroMeta: { color: '#ffffff', opacity: 0.9, marginTop: Spacing.half },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
