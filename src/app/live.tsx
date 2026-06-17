@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { Card } from '@/components/card';
@@ -12,8 +12,9 @@ import { TrackingMap } from '@/components/tracking-map';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { fetchLatestPosition, fetchLatestRunEvent, fetchNowPlaying } from '@/lib/api';
+import { fetchLatestRunEvent, fetchNowPlaying, fetchRunPath } from '@/lib/api';
 import { clockTime, elapsedSince } from '@/lib/date';
+import { pathDistanceMeters } from '@/lib/geo';
 import { parseRunGoal } from '@/lib/run-apps';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
@@ -37,7 +38,7 @@ export default function LiveScreen() {
 
   const [runEvent, setRunEvent] = useState<RunEvent | null>(null);
   const [nowPlaying, setNowPlaying] = useState<NowPlaying | null>(null);
-  const [position, setPosition] = useState<LivePosition | null>(null);
+  const [path, setPath] = useState<LivePosition[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   // Locally-advanced playback position for a smooth progress bar between polls.
   const [progressMs, setProgressMs] = useState(0);
@@ -57,9 +58,9 @@ export default function LiveScreen() {
       setProgressMs(np.progressMs);
       lastSync.current = Date.now();
     }
-    // Only an in-progress run has a live position worth showing.
+    // Only an in-progress run has a live trail worth showing.
     const runId = event?.event_type === 'start' ? event.run_id : null;
-    setPosition(await fetchLatestPosition(targetId, runId).catch(() => null));
+    setPath(await fetchRunPath(targetId, runId).catch(() => []));
   }, [targetId]);
 
   // Poll (covers Spotify, which can't be realtime) + subscribe to run/position
@@ -119,6 +120,15 @@ export default function LiveScreen() {
     isRunning && runEvent?.created_at
       ? Math.max(0, Math.floor((Date.now() - new Date(runEvent.created_at).getTime()) / 1000))
       : 0;
+  // Real telemetry from the GPS breadcrumb trail; null until ≥2 points land, so
+  // the card falls back to the pace estimate the design provides.
+  const latlngs = useMemo(() => path.map((p) => ({ lat: p.lat, lng: p.lng })), [path]);
+  const distanceMeters = useMemo(
+    () => (latlngs.length > 1 ? pathDistanceMeters(latlngs) : null),
+    [latlngs],
+  );
+  const position = path.length ? path[path.length - 1] : null;
+  const current = position ? { lat: position.lat, lng: position.lng } : null;
   const startTrack = isRunning && runEvent?.track_snapshot?.isPlaying ? runEvent.track_snapshot : null;
   const subtitle = isSelf
     ? "What you're up to right now"
@@ -155,7 +165,9 @@ export default function LiveScreen() {
             {runEvent.workout_label}
           </ThemedText>
         ) : null}
-        {isRunning && runEvent ? <RunProgress runEvent={runEvent} elapsedSec={elapsedSec} /> : null}
+        {isRunning && runEvent ? (
+          <RunProgress runEvent={runEvent} elapsedSec={elapsedSec} distanceMeters={distanceMeters} />
+        ) : null}
         {startTrack ? (
           <ThemedText type="small" themeColor="textSecondary" style={styles.startTrack}>
             🎧 Headed out to {startTrack.track} — {startTrack.artist}
@@ -174,7 +186,12 @@ export default function LiveScreen() {
             // <MapView> anchored at {position.lat, position.lng} with a
             // breadcrumb trail; the LIVE badge + stats overlay stay.
             <View style={styles.mapWrap}>
-              <TrackingMap elapsedSec={elapsedSec} />
+              <TrackingMap
+                elapsedSec={elapsedSec}
+                distanceMeters={distanceMeters}
+                path={latlngs}
+                current={current}
+              />
               <ThemedText type="small" themeColor="textSecondary" style={styles.mapCaption}>
                 Updated {clockTime(position.recorded_at)} · {position.lat.toFixed(4)}, {position.lng.toFixed(4)}
               </ThemedText>

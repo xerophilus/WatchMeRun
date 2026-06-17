@@ -10,6 +10,7 @@ import { PREFERRED_RUN_APP } from '@/lib/config';
 import { isToday } from '@/lib/date';
 import { useSession } from '@/lib/session';
 import { isRunApp, openRunApp, RUN_APPS, runAppOrder, type RunApp } from '@/lib/run-apps';
+import { startTracking, stopTracking } from '@/lib/tracking';
 import type { RunEvent, ScheduleDay } from '@/lib/types';
 
 const DEFAULT_APP: RunApp = isRunApp(PREFERRED_RUN_APP) ? PREFERRED_RUN_APP : 'apple_workout';
@@ -68,6 +69,7 @@ export function StartRunControl({
     setError(null);
     try {
       if (isRunning) {
+        await stopTracking();
         await sendRunEvent('stop');
       } else {
         const day = days.find((d) => d.id === selectedDayId);
@@ -76,7 +78,10 @@ export function StartRunControl({
           workoutLabel: day?.title ?? undefined,
           detail: day?.detail ?? undefined,
         };
-        await sendRunEvent('start', payload);
+        const { runId } = await sendRunEvent('start', payload);
+        // Share live location for this run (best-effort; a denied permission
+        // just means no breadcrumb trail). Tagged with the run's id.
+        if (runId) await startTracking(runId).catch(() => false);
         // Hand off to the chosen app, carrying the picked workout where the app
         // can use it (the Shortcut bridge). Best-effort; beacon already fired.
         await openRunApp(selectedApp, payload);

@@ -79,9 +79,11 @@ It rides _alongside_ whatever app you already record runs with.
     Requires a one-time Shortcut setup on the watch.
 
 ## Not yet built (roadmap, in priority order)
-1. **Live GPS tracking** — a map + breadcrumb trail on Live while someone runs.
-   The backend (`live_positions` + `/position`) is ready; what's missing is the
-   on-device location reporter (foreground + background) that feeds it.
+1. **Real route map** — Live now captures GPS on the runner's device (background
+   while running) and shows **real live distance, pace, and elapsed time**. The
+   remaining piece is swapping the stylized decorative map for an actual
+   `react-native-maps` view with the breadcrumb route polyline (the telemetry —
+   `path` / `current` — is already plumbed through to the component).
 2. **Per-runner avatars / richer profiles.**
 3. **Run history** beyond the latest event (past runs, weekly mileage).
 4. **Universal Links** so invite links open the app from Safari/Messages

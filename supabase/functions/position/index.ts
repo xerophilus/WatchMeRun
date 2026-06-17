@@ -1,9 +1,10 @@
-// POST /position  (Bearer <runner token>)   [v2 groundwork]
-// A Ben-side background location reporter posts here every ~15-30s during a run.
+// POST /position   (Bearer <runner token> OR <supabase user JWT>)
+// The runner's device posts their location every ~15-30s during a run — from the
+// app (user JWT, via expo-location) or a watchOS Shortcut (runner token).
 //
 // { "lat": 39.0, "lng": -76.9, "run_id": "<uuid from the active run>" }
 import { corsHeaders, json } from '../_shared/cors.ts';
-import { adminClient, resolveRunnerFromToken, UnauthorizedError } from '../_shared/env.ts';
+import { adminClient, resolveRunner, UnauthorizedError } from '../_shared/env.ts';
 
 // Keep the table bounded — drop this runner's points older than a long run.
 const PRUNE_OLDER_THAN_MS = 24 * 60 * 60 * 1000;
@@ -14,7 +15,7 @@ Deno.serve(async (req) => {
 
   try {
     const admin = adminClient();
-    const rid = await resolveRunnerFromToken(admin, req);
+    const rid = await resolveRunner(admin, req);
 
     const { lat, lng, run_id } = (await req.json()) as {
       lat?: number;

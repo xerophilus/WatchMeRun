@@ -12,7 +12,8 @@
       "usesAppleSignIn": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "LSApplicationQueriesSchemes": ["strava", "nikerunclub", "shortcuts"]
+        "LSApplicationQueriesSchemes": ["strava", "nikerunclub", "shortcuts"],
+        "UIBackgroundModes": ["location"]
       }
     },
     "android": {
@@ -30,6 +31,14 @@
       "expo-router",
       "expo-notifications",
       "expo-apple-authentication",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "WatchMeRun shares your location with your crew only while you're on a run.",
+          "locationAlwaysAndWhenInUsePermission": "WatchMeRun shares your live location with your approved watchers while you run, even when the app is in the background.",
+          "isIosBackgroundLocationEnabled": true
+        }
+      ],
       [
         "expo-splash-screen",
         {

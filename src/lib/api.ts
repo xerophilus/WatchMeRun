@@ -246,6 +246,19 @@ export async function fetchLatestPosition(
   return data ?? null;
 }
 
+/** Every GPS point of a run, oldest first — the breadcrumb trail + distance. */
+export async function fetchRunPath(runnerId: string, runId: string | null): Promise<LivePosition[]> {
+  if (!runId) return [];
+  const { data, error } = await supabase
+    .from('live_positions')
+    .select('*')
+    .eq('runner_id', runnerId)
+    .eq('run_id', runId)
+    .order('recorded_at', { ascending: true });
+  if (error) throw error;
+  return data ?? [];
+}
+
 export async function fetchNowPlaying(runnerId: string): Promise<NowPlaying> {
   // Send the viewer's token so the endpoint can enforce the follow gate; a
   // forbidden viewer just gets "nothing playing" rather than the track.
@@ -269,12 +282,18 @@ export async function fetchNowPlaying(runnerId: string): Promise<NowPlaying> {
 export async function sendRunEvent(
   eventType: 'start' | 'stop',
   opts: { workoutType?: string; workoutLabel?: string } = {},
-): Promise<void> {
-  await authedFetch('run-event', {
+): Promise<{ runId: string | null }> {
+  const out = await authedFetch<{ run_id?: string }>('run-event', {
     event_type: eventType,
     workout_type: opts.workoutType,
     workout_label: opts.workoutLabel,
   });
+  return { runId: out.run_id ?? null };
+}
+
+/** Report one GPS point for the active run (background location reporter). */
+export async function postPosition(lat: number, lng: number, runId: string): Promise<void> {
+  await authedFetch('position', { lat, lng, run_id: runId });
 }
 
 /**
