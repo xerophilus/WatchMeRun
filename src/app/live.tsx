@@ -14,6 +14,7 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { fetchLatestPosition, fetchLatestRunEvent, fetchNowPlaying } from '@/lib/api';
 import { clockTime, elapsedSince } from '@/lib/date';
+import { parseRunGoal } from '@/lib/run-apps';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import type { LivePosition, NowPlaying, RunEvent } from '@/lib/types';
@@ -41,6 +42,8 @@ export default function LiveScreen() {
   // Locally-advanced playback position for a smooth progress bar between polls.
   const [progressMs, setProgressMs] = useState(0);
   const lastSync = useRef<number>(Date.now());
+  // Re-render once a second so elapsed time + run progress advance between polls.
+  const [, setTick] = useState(0);
 
   const load = useCallback(async () => {
     if (!targetId) return;
@@ -98,6 +101,13 @@ export default function LiveScreen() {
     return () => clearInterval(id);
   }, [nowPlaying]);
 
+  // Tick every second while a run is in progress.
+  useEffect(() => {
+    if (runEvent?.event_type !== 'start') return;
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [runEvent]);
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await load();
@@ -145,6 +155,7 @@ export default function LiveScreen() {
             {runEvent.workout_label}
           </ThemedText>
         ) : null}
+        {isRunning && runEvent ? <RunProgress runEvent={runEvent} elapsedSec={elapsedSec} /> : null}
         {startTrack ? (
           <ThemedText type="small" themeColor="textSecondary" style={styles.startTrack}>
             🎧 Headed out to {startTrack.track} — {startTrack.artist}
@@ -208,6 +219,62 @@ export default function LiveScreen() {
   );
 }
 
+// ~9:30/mi easy pace — matches the tracking-map estimate. Used to turn a
+// distance goal into a target time until real GPS distance is available.
+const SEC_PER_MI = 570;
+const KM_TO_MI = 0.621371;
+
+function fmtClock(sec: number): string {
+  const t = Math.max(0, Math.floor(sec));
+  const h = Math.floor(t / 3600);
+  const m = Math.floor((t % 3600) / 60);
+  const s = t % 60;
+  const mm = h ? String(m).padStart(2, '0') : String(m);
+  return `${h ? `${h}:` : ''}${mm}:${String(s).padStart(2, '0')}`;
+}
+
+/**
+ * Time-based progress toward the planned workout. Exact for a time goal;
+ * estimated from an easy pace for a distance goal (real distance arrives with
+ * GPS); nothing to show for an open/unplanned run.
+ */
+function RunProgress({ runEvent, elapsedSec }: { runEvent: RunEvent; elapsedSec: number }) {
+  const theme = useTheme();
+  const goal = parseRunGoal(runEvent.workout_type ?? undefined, runEvent.workout_label);
+
+  let targetSec: number | null = null;
+  let estimated = false;
+  if (goal.kind === 'time') {
+    targetSec = goal.minutes * 60;
+  } else if (goal.kind === 'distance') {
+    const mi = goal.unit === 'km' ? goal.value * KM_TO_MI : goal.value;
+    targetSec = mi * SEC_PER_MI;
+    estimated = true;
+  }
+  if (!targetSec) return null;
+
+  const pct = Math.min(100, (elapsedSec / targetSec) * 100);
+  return (
+    <View style={styles.runProgress}>
+      <View style={[styles.runTrack, { backgroundColor: theme.backgroundSelected }]}>
+        <View style={[styles.runFill, { width: `${pct}%`, backgroundColor: theme.accent }]} />
+      </View>
+      <View style={styles.timeRow}>
+        <ThemedText type="smallBold">{fmtClock(elapsedSec)}</ThemedText>
+        <ThemedText type="small" themeColor="textSecondary">
+          {estimated ? '~' : ''}
+          {fmtClock(targetSec)} goal
+        </ThemedText>
+      </View>
+      {estimated ? (
+        <ThemedText type="small" themeColor="textSecondary">
+          Estimated from the plan · real pace &amp; distance land with GPS.
+        </ThemedText>
+      ) : null}
+    </View>
+  );
+}
+
 function ProgressBar({ progressMs, durationMs }: { progressMs: number; durationMs: number }) {
   const theme = useTheme();
   const pct = durationMs > 0 ? Math.min(100, (progressMs / durationMs) * 100) : 0;
@@ -234,6 +301,9 @@ const styles = StyleSheet.create({
   mapWrap: { gap: Spacing.two },
   mapCaption: { textAlign: 'center' },
   workoutLabel: { marginTop: Spacing.two, fontWeight: '600' },
+  runProgress: { marginTop: Spacing.three, gap: Spacing.one },
+  runTrack: { height: 8, borderRadius: 4, overflow: 'hidden' },
+  runFill: { height: 8, borderRadius: 4 },
   startTrack: { marginTop: Spacing.one },
   sectionLabel: { marginBottom: Spacing.two, letterSpacing: 1 },
   npRow: { flexDirection: 'row', gap: Spacing.three, alignItems: 'center' },
