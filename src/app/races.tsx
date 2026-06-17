@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
   hero: { borderRadius: Spacing.four, padding: Spacing.four },
   heroKicker: { color: '#ffffff', opacity: 0.85, fontSize: 11, letterSpacing: 1.6 },
   heroDaysRow: { flexDirection: 'row', alignItems: 'baseline', gap: Spacing.two, marginTop: Spacing.one },
-  heroDays: { color: '#ffffff', fontFamily: Font.display, fontSize: 76, lineHeight: 64, letterSpacing: 0.5 },
+  heroDays: { color: '#ffffff', fontFamily: Font.display, fontSize: 76, lineHeight: 92, letterSpacing: 0.5 },
   heroDaysUnit: { color: '#ffffff', opacity: 0.9, fontSize: 18, fontWeight: '600' },
   sectionLabel: { letterSpacing: 1.6, marginTop: Spacing.one },
   heroName: { color: '#ffffff', fontWeight: '700', fontSize: 20, marginTop: Spacing.three },

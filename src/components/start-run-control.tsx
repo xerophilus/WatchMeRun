@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { Card } from '@/components/card';
@@ -38,31 +39,48 @@ export function StartRunControl({
   const [days, setDays] = useState<ScheduleDay[]>([]);
   // run_events row id of the picked workout, or NO_LABEL for an unplanned run.
   const [selectedDayId, setSelectedDayId] = useState<string>(NO_LABEL);
+  // True once the runner picks a workout themselves, so a background refetch
+  // of the week doesn't yank their choice back to today's default.
+  const picked = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const isRunning = runEvent?.event_type === 'start';
 
+  const pickWorkout = useCallback((id: string) => {
+    picked.current = true;
+    setSelectedDayId(id);
+  }, []);
+
   // Pull this week so the runner can tag the run with a planned workout, and
-  // default to today's if there is one.
-  useEffect(() => {
+  // default to today's if there is one. Re-run whenever the Live screen regains
+  // focus so a schedule pasted over on This Week shows up here without an app
+  // restart (the tab stays mounted, so a one-shot mount fetch would miss it).
+  const loadWeek = useCallback(async () => {
     if (!me) return;
-    let active = true;
-    fetchLatestWeek(me.id)
-      .then((week) => {
-        if (!active) return;
-        const runnable = week.filter((d) => d.workout_type !== 'rest');
-        setDays(runnable);
+    try {
+      const week = await fetchLatestWeek(me.id);
+      const runnable = week.filter((d) => d.workout_type !== 'rest');
+      setDays(runnable);
+      setSelectedDayId((current) => {
+        if (picked.current) {
+          // Keep the runner's pick if it still exists; otherwise fall back.
+          if (runnable.some((d) => d.id === current)) return current;
+          picked.current = false;
+        }
         const today = runnable.find((d) => isToday(d.day_date));
-        if (today) setSelectedDayId(today.id);
-      })
-      .catch(() => {
-        /* schedule is a nicety here; a failed load just means no labels. */
+        return today ? today.id : NO_LABEL;
       });
-    return () => {
-      active = false;
-    };
+    } catch {
+      /* schedule is a nicety here; a failed load just means no labels. */
+    }
   }, [me]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadWeek();
+    }, [loadWeek]),
+  );
 
   async function onPress() {
     setBusy(true);
@@ -112,7 +130,7 @@ export function StartRunControl({
                   label="No label"
                   active={selectedDayId === NO_LABEL}
                   disabled={busy}
-                  onPress={() => setSelectedDayId(NO_LABEL)}
+                  onPress={() => pickWorkout(NO_LABEL)}
                 />
                 {days.map((d) => (
                   <WorkoutChip
@@ -120,7 +138,7 @@ export function StartRunControl({
                     label={`${isToday(d.day_date) ? 'Today · ' : ''}${d.title}`}
                     active={selectedDayId === d.id}
                     disabled={busy}
-                    onPress={() => setSelectedDayId(d.id)}
+                    onPress={() => pickWorkout(d.id)}
                   />
                 ))}
               </View>

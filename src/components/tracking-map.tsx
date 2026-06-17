@@ -193,6 +193,6 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   stat: { flex: 1 },
-  statNum: { fontFamily: Font.display, fontSize: 28, lineHeight: 28, letterSpacing: 0.5 },
+  statNum: { fontFamily: Font.display, fontSize: 28, lineHeight: 35, letterSpacing: 0.5 },
   statLabel: { fontSize: 10, letterSpacing: 1.2, marginTop: 4 },
 });

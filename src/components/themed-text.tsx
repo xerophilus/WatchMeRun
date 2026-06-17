@@ -47,10 +47,12 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   // Anton display — condensed uppercase. Screens add textTransform themselves.
+  // Anton's caps are tall and sit high in the line box; lineHeight needs ~1.25×
+  // the font size or the tops of the glyphs get clipped on iOS.
   title: {
     fontFamily: Font.display,
     fontSize: 46,
-    lineHeight: 48,
+    lineHeight: 58,
     letterSpacing: 0.5,
   },
   subtitle: {
