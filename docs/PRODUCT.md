@@ -51,7 +51,9 @@ It rides _alongside_ whatever app you already record runs with.
 - Real-time **run status**: Running / Resting, time since start, elapsed, and
   the current workout label.
 - **Now playing** from the runner's Spotify (album art + track progress).
-- **Live location** (groundwork — see "Not yet built").
+- **Live location:** a real map (Apple Maps) with the runner's route as a live
+  breadcrumb trail and real distance / pace / elapsed time, shared with watchers
+  while they run. Only the runner's own device captures GPS, in the background.
 - For yourself: a **Start / Stop** control that fires a run "beacon" and can
   hand off to your run app of choice.
 
@@ -79,14 +81,10 @@ It rides _alongside_ whatever app you already record runs with.
     Requires a one-time Shortcut setup on the watch.
 
 ## Not yet built (roadmap, in priority order)
-1. **Real route map** — Live now captures GPS on the runner's device (background
-   while running) and shows **real live distance, pace, and elapsed time**. The
-   remaining piece is swapping the stylized decorative map for an actual
-   `react-native-maps` view with the breadcrumb route polyline (the telemetry —
-   `path` / `current` — is already plumbed through to the component).
+1. **Run history** — past runs with their routes + weekly mileage, not just the
+   live/latest run.
 2. **Per-runner avatars / richer profiles.**
-3. **Run history** beyond the latest event (past runs, weekly mileage).
-4. **Universal Links** so invite links open the app from Safari/Messages
+3. **Universal Links** so invite links open the app from Safari/Messages
    reliably (today they use the `watchmerun://` scheme).
 
 ## Brand / design notes

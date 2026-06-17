@@ -182,9 +182,6 @@ export default function LiveScreen() {
             LIVE LOCATION
           </ThemedText>
           {position ? (
-            // TODO(v2): swap the stylized streets for a react-native-maps
-            // <MapView> anchored at {position.lat, position.lng} with a
-            // breadcrumb trail; the LIVE badge + stats overlay stay.
             <View style={styles.mapWrap}>
               <TrackingMap
                 elapsedSec={elapsedSec}
