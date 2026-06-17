@@ -15,14 +15,28 @@ function fmtTime(sec: number): string {
   return (h ? `${h}:${String(m).padStart(2, '0')}` : `${m}`) + ':' + String(s).padStart(2, '0');
 }
 
+const METERS_PER_MI = 1609.344;
+// Easy ~9:30/mi — the estimate used to fill distance/pace before GPS (v2).
+const EST_SEC_PER_MI = 570;
+
+export type RunTelemetry = {
+  elapsedSec?: number;
+  /** Measured distance from GPS; when null we estimate from elapsed time. */
+  distanceMeters?: number | null;
+  /** Breadcrumb trail + current point — drives the route polyline once a real
+   *  map (react-native-maps) replaces the decorative streets in v2. */
+  path?: { lat: number; lng: number }[];
+  current?: { lat: number; lng: number } | null;
+};
+
 /**
- * A stylized live run-tracking map. There's no real GPS source yet (v2), so the
- * streets are decorative and the distance/pace are estimated from elapsed time
- * at an easy ~9:30/mi — enough to convey "you're being tracked right now".
- * Recreated natively from the design's SVG `<TrackingMap>` using plain Views
- * (no SVG dependency) so it drops straight into the Live screen.
+ * A stylized live run-tracking map. Pass measured GPS telemetry and it shows
+ * real distance + pace; with only `elapsedSec` it estimates them at an easy
+ * pace so the card still reads as "live" before GPS is wired (v2). Recreated
+ * natively from the design's SVG `<TrackingMap>` using plain Views (no SVG
+ * dependency) so it drops straight into the Live screen.
  */
-export function TrackingMap({ elapsedSec = 0 }: { elapsedSec?: number }) {
+export function TrackingMap({ elapsedSec = 0, distanceMeters = null }: RunTelemetry) {
   const theme = useTheme();
   const scheme = useColorScheme();
   const dark = scheme === 'dark';
@@ -31,7 +45,13 @@ export function TrackingMap({ elapsedSec = 0 }: { elapsedSec?: number }) {
     ? { base: '#14161B', block: '#1B1E25', road: '#272B34', main: '#343945' }
     : { base: '#E7E8E2', block: '#F1F1EB', road: '#FFFFFF', main: '#FFFFFF' };
 
-  const distMi = (elapsedSec / 570).toFixed(2);
+  // Measured when GPS gives us distance; estimated from elapsed time otherwise.
+  const measured = distanceMeters != null;
+  const distMiNum = measured ? distanceMeters / METERS_PER_MI : elapsedSec / EST_SEC_PER_MI;
+  const distMi = distMiNum.toFixed(2);
+  const paceSecPerMi = measured && distMiNum > 0 ? elapsedSec / distMiNum : EST_SEC_PER_MI;
+  const pace = `${Math.floor(paceSecPerMi / 60)}:${String(Math.round(paceSecPerMi % 60)).padStart(2, '0')}`;
+
   const overlay = dark ? 'rgba(10,11,13,0.92)' : 'rgba(255,255,255,0.95)';
   const chrome = withAlpha(dark ? '#000000' : '#FFFFFF', 0.6);
 
@@ -74,7 +94,7 @@ export function TrackingMap({ elapsedSec = 0 }: { elapsedSec?: number }) {
         ]}>
         <MapStat n={distMi} label="mi" />
         <MapStat n={fmtTime(elapsedSec)} label="time" />
-        <MapStat n="9:30" label="/mi" />
+        <MapStat n={pace} label="/mi" />
       </View>
     </View>
   );

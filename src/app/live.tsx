@@ -233,37 +233,63 @@ function fmtClock(sec: number): string {
   return `${h ? `${h}:` : ''}${mm}:${String(s).padStart(2, '0')}`;
 }
 
+const METERS_PER_MI = 1609.344;
+
 /**
- * Time-based progress toward the planned workout. Exact for a time goal;
- * estimated from an easy pace for a distance goal (real distance arrives with
- * GPS); nothing to show for an open/unplanned run.
+ * Progress toward the planned workout. Exact for a time goal, and exact for a
+ * distance goal once GPS supplies `distanceMeters`; until then a distance goal
+ * is estimated from an easy pace. Nothing to show for an open/unplanned run.
  */
-function RunProgress({ runEvent, elapsedSec }: { runEvent: RunEvent; elapsedSec: number }) {
+function RunProgress({
+  runEvent,
+  elapsedSec,
+  distanceMeters = null,
+}: {
+  runEvent: RunEvent;
+  elapsedSec: number;
+  distanceMeters?: number | null;
+}) {
   const theme = useTheme();
   const goal = parseRunGoal(runEvent.workout_type ?? undefined, runEvent.workout_label);
 
-  let targetSec: number | null = null;
+  let pct: number | null = null;
+  let left = '';
+  let right = '';
   let estimated = false;
-  if (goal.kind === 'time') {
-    targetSec = goal.minutes * 60;
-  } else if (goal.kind === 'distance') {
-    const mi = goal.unit === 'km' ? goal.value * KM_TO_MI : goal.value;
-    targetSec = mi * SEC_PER_MI;
-    estimated = true;
-  }
-  if (!targetSec) return null;
 
-  const pct = Math.min(100, (elapsedSec / targetSec) * 100);
+  if (goal.kind === 'time') {
+    const targetSec = goal.minutes * 60;
+    pct = (elapsedSec / targetSec) * 100;
+    left = fmtClock(elapsedSec);
+    right = `${fmtClock(targetSec)} goal`;
+  } else if (goal.kind === 'distance') {
+    const goalMi = goal.unit === 'km' ? goal.value * KM_TO_MI : goal.value;
+    if (distanceMeters != null) {
+      const doneMi = distanceMeters / METERS_PER_MI;
+      pct = (doneMi / goalMi) * 100;
+      left = `${doneMi.toFixed(2)} mi`;
+      right = `${+goalMi.toFixed(1)} mi goal`;
+    } else {
+      const targetSec = goalMi * SEC_PER_MI;
+      pct = (elapsedSec / targetSec) * 100;
+      left = fmtClock(elapsedSec);
+      right = `~${fmtClock(targetSec)} goal`;
+      estimated = true;
+    }
+  }
+  if (pct == null) return null;
+
   return (
     <View style={styles.runProgress}>
       <View style={[styles.runTrack, { backgroundColor: theme.backgroundSelected }]}>
-        <View style={[styles.runFill, { width: `${pct}%`, backgroundColor: theme.accent }]} />
+        <View
+          style={[styles.runFill, { width: `${Math.min(100, pct)}%`, backgroundColor: theme.accent }]}
+        />
       </View>
       <View style={styles.timeRow}>
-        <ThemedText type="smallBold">{fmtClock(elapsedSec)}</ThemedText>
+        <ThemedText type="smallBold">{left}</ThemedText>
         <ThemedText type="small" themeColor="textSecondary">
-          {estimated ? '~' : ''}
-          {fmtClock(targetSec)} goal
+          {right}
         </ThemedText>
       </View>
       {estimated ? (
