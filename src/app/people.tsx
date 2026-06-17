@@ -1,3 +1,4 @@
+import { SymbolView, type SymbolViewProps } from 'expo-symbols';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, Share, StyleSheet, TextInput, View } from 'react-native';
 
@@ -185,10 +186,17 @@ export default function PeopleScreen() {
             <ThemedText type="title" style={styles.code}>
               {inviteCode}
             </ThemedText>
-            <SmallButton label="Share invite" primary onPress={onShareInvite} />
+            <SmallButton label="Share invite" primary block icon="square.and.arrow.up" onPress={onShareInvite} />
           </>
         ) : (
-          <SmallButton label="Create invite link" primary busy={busyId === 'invite'} onPress={onCreateInvite} />
+          <SmallButton
+            label="Create invite link"
+            primary
+            block
+            icon="link"
+            busy={busyId === 'invite'}
+            onPress={onCreateInvite}
+          />
         )}
       </Card>
 
@@ -313,12 +321,17 @@ function SmallButton({
   primary,
   busy,
   disabled,
+  block,
+  icon,
 }: {
   label: string;
   onPress: () => void;
   primary?: boolean;
   busy?: boolean;
   disabled?: boolean;
+  /** Full-width, taller call-to-action (vs. the compact inline default). */
+  block?: boolean;
+  icon?: SymbolViewProps['name'];
 }) {
   const theme = useTheme();
   return (
@@ -327,15 +340,23 @@ function SmallButton({
       disabled={busy || disabled}
       style={[
         styles.smallButton,
+        block ? styles.blockButton : undefined,
         { backgroundColor: primary ? theme.accent : theme.backgroundSelected },
         busy || disabled ? styles.disabled : undefined,
       ]}>
       {busy ? (
         <ActivityIndicator color={primary ? '#fff' : theme.text} />
       ) : (
-        <ThemedText type="small" style={[styles.smallButtonText, primary ? styles.primaryText : undefined]}>
-          {label}
-        </ThemedText>
+        <View style={styles.buttonInner}>
+          <ThemedText
+            type={block ? 'default' : 'small'}
+            style={[styles.smallButtonText, primary ? styles.primaryText : undefined]}>
+            {label}
+          </ThemedText>
+          {icon ? (
+            <SymbolView name={icon} size={block ? 18 : 15} tintColor={primary ? '#fff' : theme.text} weight="semibold" />
+          ) : null}
+        </View>
       )}
     </Pressable>
   );
@@ -374,6 +395,13 @@ const styles = StyleSheet.create({
     minWidth: 88,
     minHeight: 40,
   },
+  blockButton: {
+    width: '100%',
+    minWidth: 0,
+    paddingVertical: Spacing.three,
+    minHeight: 52,
+  },
+  buttonInner: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   smallButtonText: { fontWeight: '700' },
   primaryText: { color: '#fff' },
   disabled: { opacity: 0.5 },
