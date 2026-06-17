@@ -9,7 +9,7 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { disconnectSpotify, fetchSpotifyStatus, getSpotifyConnectUrl } from '@/lib/api';
 
-const RETURN_URL = 'watchmerun://spotify-connected';
+const RETURN_URL = 'crewd://spotify-connected';
 
 const ERROR_COPY: Record<string, string> = {
   access_denied: 'You declined the Spotify permission.',

@@ -43,7 +43,9 @@ export function SignInScreen() {
     <View style={styles.container}>
       <View style={styles.hero}>
         <ThemedText style={styles.logo}>🏃</ThemedText>
-        <ThemedText type="title">WatchMeRun</ThemedText>
+        <ThemedText type="title" style={styles.wordmark}>
+          Crewd
+        </ThemedText>
         <ThemedText type="default" themeColor="textSecondary" style={styles.tagline}>
           Follow your crew&apos;s training, and let them follow yours.
         </ThemedText>
@@ -80,7 +82,9 @@ export function SignInScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'space-between', padding: Spacing.six },
   hero: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: Spacing.two },
-  logo: { fontSize: 64 },
+  // lineHeight must clear the glyph or the default 24px body line-height clips it.
+  logo: { fontSize: 64, lineHeight: 76, textAlign: 'center' },
+  wordmark: { textTransform: 'uppercase', fontSize: 56, lineHeight: 58 },
   tagline: { textAlign: 'center', maxWidth: 300 },
   actions: { gap: Spacing.three, paddingBottom: Spacing.six },
   appleButton: { height: 52, width: '100%' },

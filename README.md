@@ -1,4 +1,4 @@
-# WatchMeRun 🏃
+# Crewd 🏃
 
 A small Expo app that lets Kenz see Ben's current-week training schedule,
 upcoming races, live run status (start/stop), and what's playing on Spotify —
@@ -173,7 +173,7 @@ Two paste formats, auto-detected:
 The selection can only be *handed to* the run app for Apple's Workout app, via a
 watchOS Shortcut. Set `EXPO_PUBLIC_RUN_SHORTCUT_NAME` to the name of a Shortcut
 Ben builds once; the "Apple Watch (Shortcut)" option then appears and, on Start,
-WatchMeRun opens `shortcuts://run-shortcut?name=<name>&input=<json>` with the
+Crewd opens `shortcuts://run-shortcut?name=<name>&input=<json>` with the
 picked workout as input:
 
 ```json

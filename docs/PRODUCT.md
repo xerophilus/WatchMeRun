@@ -1,16 +1,16 @@
-# WatchMeRun — Product Brief
+# Crewd — Product Brief
 
 _For design / App Store prep. Describes what the app is, who it's for, and every
 screen + feature as currently built._
 
 ## One-liner
-**Watch your crew train.** WatchMeRun is a private, invite-only companion for a
+**Watch your crew train.** Crewd is a private, invite-only companion for a
 small group of runners to follow each other's training — schedule, races, and
 live run status — without the noise of a public social network.
 
 ## Elevator pitch
 Most run apps are either solo trackers (Strava, Nike Run Club, Apple Workout) or
-loud public feeds. WatchMeRun is the opposite: a quiet, intimate space for a
+loud public feeds. Crewd is the opposite: a quiet, intimate space for a
 handful of people who actually care about each other's running — training
 partners, a coach and their athletes, a couple, a few friends chasing the same
 race. You see what's on each other's calendar, what races are coming, and get a
@@ -70,7 +70,7 @@ It rides _alongside_ whatever app you already record runs with.
   run ("Ben started a run 🏃").
 
 ### Run hand-off (the "Start My Run" button)
-- WatchMeRun does not record GPS itself; it fires the status beacon and then
+- Crewd does not record GPS itself; it fires the status beacon and then
   **opens the app you actually run with**. Honest constraint: no third-party app
   exposes a "start my run" API.
   - **Strava / Nike Run Club:** opens the app (to its record screen). Open-only.
@@ -85,10 +85,10 @@ It rides _alongside_ whatever app you already record runs with.
    live/latest run.
 2. **Per-runner avatars / richer profiles.**
 3. **Universal Links** so invite links open the app from Safari/Messages
-   reliably (today they use the `watchmerun://` scheme).
+   reliably (today they use the `crewd://` scheme).
 
 ## Brand / design notes
-- **Name:** WatchMeRun. **Tone:** warm, personal, low-key — a group text, not a
+- **Name:** Crewd. **Tone:** warm, personal, low-key — a group text, not a
   leaderboard.
 - **Current palette:** teal (`#005B57` / deep `#00332F`) with an orange accent;
   light + dark themes.
@@ -98,12 +98,12 @@ It rides _alongside_ whatever app you already record runs with.
   high points worth polishing.
 
 ## Draft App Store copy
-- **App name:** WatchMeRun
+- **App name:** Crewd
 - **Subtitle (30 chars):** Watch your crew train
 - **Promo text:** Follow your running crew's training, races, and live runs —
   privately, by invite only.
 - **Description:**
-  > WatchMeRun is a private space for a small crew of runners to follow each
+  > Crewd is a private space for a small crew of runners to follow each
   > other's training. See everyone's weekly schedule and upcoming races, and get
   > a nudge the moment a training partner heads out — with what they're listening
   > to. No public feed, no followers, no noise: you only ever share with the
@@ -115,6 +115,6 @@ It rides _alongside_ whatever app you already record runs with.
   > • Invite by link or @handle — and approve who can watch you.
   > • Get notified when someone you follow starts or finishes a run.
   >
-  > WatchMeRun works alongside the app you already record runs with.
+  > Crewd works alongside the app you already record runs with.
 - **Keywords:** running, training, crew, coach, schedule, races, accountability,
   private, partner, friends

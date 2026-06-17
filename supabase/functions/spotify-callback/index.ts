@@ -1,11 +1,11 @@
 // GET /spotify-callback?code=...&state=...  (public — Spotify redirects here)
 // Exchanges the auth code for a refresh token, stores it for the runner who
 // started the flow (looked up via the one-time state), then redirects back into
-// the app via the watchmerun:// scheme. No JWT: the state is the proof.
+// the app via the crewd:// scheme. No JWT: the state is the proof.
 import { adminClient } from '../_shared/env.ts';
 import { appCredentials } from '../_shared/spotify.ts';
 
-const APP_RETURN = 'watchmerun://spotify-connected';
+const APP_RETURN = 'crewd://spotify-connected';
 const STATE_TTL_MS = 10 * 60 * 1000;
 
 function backToApp(params: Record<string, string>): Response {

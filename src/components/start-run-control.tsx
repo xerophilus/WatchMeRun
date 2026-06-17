@@ -22,7 +22,7 @@ const NO_LABEL = '__none__';
  * One button to fire the start/stop beacon, plus quick pickers for which
  * scheduled workout to tag the run with and which run app to open on start.
  * Mirrors the iOS Shortcut, but lives in the app so you can kick off a tracked
- * run (now-playing snapshot + watcher push) without leaving WatchMeRun. Only
+ * run (now-playing snapshot + watcher push) without leaving Crewd. Only
  * rendered when you're viewing your own Live screen.
  */
 export function StartRunControl({

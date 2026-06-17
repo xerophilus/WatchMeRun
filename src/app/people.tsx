@@ -78,9 +78,9 @@ export default function PeopleScreen() {
 
   async function onShareInvite() {
     if (!inviteCode || !me) return;
-    const link = `watchmerun://invite?code=${inviteCode}`;
+    const link = `crewd://invite?code=${inviteCode}`;
     await Share.share({
-      message: `Watch my training on WatchMeRun. Open the app, go to Crew, and enter code ${inviteCode} — or tap ${link}`,
+      message: `Watch my training on Crewd. Open the app, go to Crew, and enter code ${inviteCode} — or tap ${link}`,
     });
   }
 

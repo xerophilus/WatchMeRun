@@ -6,7 +6,7 @@ import { redeemInvite } from '@/lib/api';
 import { useSession } from '@/lib/session';
 
 /**
- * Handles invite deep links: watchmerun://invite?code=<code>. When such a link
+ * Handles invite deep links: crewd://invite?code=<code>. When such a link
  * opens the app (cold start or while running) and the user is signed in with a
  * profile, redeem the code — creating an approved follow — then refresh the
  * watch list. Codes are handled once so a re-render can't double-redeem.

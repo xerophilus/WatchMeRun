@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "WatchMeRun",
+    "name": "Crewd",
     "slug": "watchmerun",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "watchmerun",
+    "scheme": "crewd",
     "userInterfaceStyle": "automatic",
     "ios": {
       "bundleIdentifier": "com.xerophilus.watchmerun",
@@ -34,8 +34,8 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "WatchMeRun shares your location with your crew only while you're on a run.",
-          "locationAlwaysAndWhenInUsePermission": "WatchMeRun shares your live location with your approved watchers while you run, even when the app is in the background.",
+          "locationWhenInUsePermission": "Crewd shares your location with your crew only while you're on a run.",
+          "locationAlwaysAndWhenInUsePermission": "Crewd shares your live location with your approved watchers while you run, even when the app is in the background.",
           "isIosBackgroundLocationEnabled": true
         }
       ],

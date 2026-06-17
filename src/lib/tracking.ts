@@ -56,7 +56,7 @@ export async function startTracking(runId: string): Promise<boolean> {
     showsBackgroundLocationIndicator: true,
     activityType: Location.ActivityType.Fitness,
     foregroundService: {
-      notificationTitle: 'WatchMeRun',
+      notificationTitle: 'Crewd',
       notificationBody: 'Sharing your live run with your crew',
     },
   });
