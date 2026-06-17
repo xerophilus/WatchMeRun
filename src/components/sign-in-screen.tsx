@@ -84,7 +84,7 @@ const styles = StyleSheet.create({
   hero: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: Spacing.two },
   // lineHeight must clear the glyph or the default 24px body line-height clips it.
   logo: { fontSize: 64, lineHeight: 76, textAlign: 'center' },
-  wordmark: { textTransform: 'uppercase', fontSize: 56, lineHeight: 58 },
+  wordmark: { textTransform: 'uppercase', fontSize: 56, lineHeight: 70 },
   tagline: { textAlign: 'center', maxWidth: 300 },
   actions: { gap: Spacing.three, paddingBottom: Spacing.six },
   appleButton: { height: 52, width: '100%' },
