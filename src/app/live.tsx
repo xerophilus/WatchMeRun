@@ -4,14 +4,15 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { Card } from '@/components/card';
+import { PersonSwitcher } from '@/components/person-switcher';
 import { Screen } from '@/components/screen';
 import { StartRunControl } from '@/components/start-run-control';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { fetchLatestPosition, fetchLatestRunEvent, fetchNowPlaying } from '@/lib/api';
-import { RUNNER_ID, isConfigured, isRunner } from '@/lib/config';
 import { clockTime, elapsedSince } from '@/lib/date';
+import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import type { LivePosition, NowPlaying, RunEvent } from '@/lib/types';
 
@@ -26,6 +27,11 @@ function msToClock(ms: number): string {
 
 export default function LiveScreen() {
   const theme = useTheme();
+  const { me, watching, viewedId } = useSession();
+  const targetId = viewedId ?? me?.id ?? null;
+  const isSelf = targetId === me?.id;
+  const viewedRunner = isSelf ? me : watching.find((w) => w.id === targetId);
+
   const [runEvent, setRunEvent] = useState<RunEvent | null>(null);
   const [nowPlaying, setNowPlaying] = useState<NowPlaying | null>(null);
   const [position, setPosition] = useState<LivePosition | null>(null);
@@ -35,9 +41,10 @@ export default function LiveScreen() {
   const lastSync = useRef<number>(Date.now());
 
   const load = useCallback(async () => {
+    if (!targetId) return;
     const [event, np] = await Promise.all([
-      fetchLatestRunEvent().catch(() => null),
-      fetchNowPlaying().catch(() => ({ isPlaying: false }) as NowPlaying),
+      fetchLatestRunEvent(targetId).catch(() => null),
+      fetchNowPlaying(targetId).catch(() => ({ isPlaying: false }) as NowPlaying),
     ]);
     setRunEvent(event);
     setNowPlaying(np);
@@ -47,27 +54,27 @@ export default function LiveScreen() {
     }
     // Only an in-progress run has a live position worth showing.
     const runId = event?.event_type === 'start' ? event.run_id : null;
-    setPosition(await fetchLatestPosition(runId).catch(() => null));
-  }, []);
+    setPosition(await fetchLatestPosition(targetId, runId).catch(() => null));
+  }, [targetId]);
 
   // Poll (covers Spotify, which can't be realtime) + subscribe to run/position
   // changes for instant start/stop and GPS updates, while the screen is focused.
   useFocusEffect(
     useCallback(() => {
-      if (!isConfigured) return;
+      if (!targetId) return;
       load();
       const interval = setInterval(load, POLL_MS);
 
       const channel = supabase
-        .channel('live-screen')
+        .channel(`live-${targetId}`)
         .on(
           'postgres_changes',
-          { event: '*', schema: 'public', table: 'run_events', filter: `runner_id=eq.${RUNNER_ID}` },
+          { event: '*', schema: 'public', table: 'run_events', filter: `runner_id=eq.${targetId}` },
           () => load(),
         )
         .on(
           'postgres_changes',
-          { event: 'INSERT', schema: 'public', table: 'live_positions', filter: `runner_id=eq.${RUNNER_ID}` },
+          { event: 'INSERT', schema: 'public', table: 'live_positions', filter: `runner_id=eq.${targetId}` },
           () => load(),
         )
         .subscribe();
@@ -76,7 +83,7 @@ export default function LiveScreen() {
         clearInterval(interval);
         supabase.removeChannel(channel);
       };
-    }, [load]),
+    }, [load, targetId]),
   );
 
   // Tick the progress bar locally each second between polls.
@@ -97,115 +104,103 @@ export default function LiveScreen() {
 
   const isRunning = runEvent?.event_type === 'start';
   const startTrack = isRunning && runEvent?.track_snapshot?.isPlaying ? runEvent.track_snapshot : null;
+  const subtitle = isSelf
+    ? "What you're up to right now"
+    : `What ${viewedRunner?.name ?? 'they'} are up to right now`;
 
   return (
-    <Screen
-      title="Live"
-      subtitle="What Ben's up to right now"
-      refreshing={refreshing}
-      onRefresh={isConfigured ? onRefresh : undefined}>
-      {!isConfigured ? (
-        <Card>
-          <ThemedText type="small" themeColor="textSecondary">
-            Add your Supabase config to .env to see live status.
-          </ThemedText>
-        </Card>
-      ) : (
-        <>
-          {/* Runner-only: start/stop a tracked run from the app itself. */}
-          {isRunner ? <StartRunControl runEvent={runEvent} onChanged={load} /> : null}
+    <Screen title="Live" subtitle={subtitle} refreshing={refreshing} onRefresh={onRefresh}>
+      <PersonSwitcher />
 
-          {/* Run status card */}
-          <Card highlighted={isRunning}>
-            <View style={styles.statusRow}>
-              <View
-                style={[
-                  styles.dot,
-                  { backgroundColor: isRunning ? theme.accent : theme.textSecondary },
-                ]}
-              />
-              <ThemedText type="default" style={styles.statusText}>
-                {isRunning ? 'Running' : 'Resting'}
+      {/* You can only start/stop your own run. */}
+      {isSelf ? <StartRunControl runEvent={runEvent} onChanged={load} /> : null}
+
+      {/* Run status card */}
+      <Card highlighted={isRunning}>
+        <View style={styles.statusRow}>
+          <View
+            style={[styles.dot, { backgroundColor: isRunning ? theme.accent : theme.textSecondary }]}
+          />
+          <ThemedText type="default" style={styles.statusText}>
+            {isRunning ? 'Running' : 'Resting'}
+          </ThemedText>
+        </View>
+        {runEvent ? (
+          <ThemedText type="small" themeColor="textSecondary">
+            {isRunning
+              ? `Since ${clockTime(runEvent.created_at!)} · ${elapsedSince(runEvent.created_at!)}`
+              : `Last run ended ${clockTime(runEvent.created_at!)}`}
+          </ThemedText>
+        ) : (
+          <ThemedText type="small" themeColor="textSecondary">
+            No runs logged yet.
+          </ThemedText>
+        )}
+        {isRunning && runEvent?.workout_label ? (
+          <ThemedText type="small" style={styles.workoutLabel}>
+            {runEvent.workout_label}
+          </ThemedText>
+        ) : null}
+        {startTrack ? (
+          <ThemedText type="small" themeColor="textSecondary" style={styles.startTrack}>
+            🎧 Headed out to {startTrack.track} — {startTrack.artist}
+          </ThemedText>
+        ) : null}
+      </Card>
+
+      {/* Live location card (v2 groundwork) */}
+      {isRunning ? (
+        <Card>
+          <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionLabel}>
+            LIVE LOCATION
+          </ThemedText>
+          {position ? (
+            // TODO(v2): drop a react-native-maps <MapView> here with a marker
+            // at {position.lat, position.lng} and a breadcrumb trail.
+            <View>
+              <ThemedText type="default">
+                {position.lat.toFixed(5)}, {position.lng.toFixed(5)}
+              </ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                Updated {clockTime(position.recorded_at)} · map coming in v2
               </ThemedText>
             </View>
-            {runEvent ? (
-              <ThemedText type="small" themeColor="textSecondary">
-                {isRunning
-                  ? `Since ${clockTime(runEvent.created_at!)} · ${elapsedSince(runEvent.created_at!)}`
-                  : `Last run ended ${clockTime(runEvent.created_at!)}`}
-              </ThemedText>
-            ) : (
-              <ThemedText type="small" themeColor="textSecondary">
-                No runs logged yet.
-              </ThemedText>
-            )}
-            {isRunning && runEvent?.workout_label ? (
-              <ThemedText type="small" style={styles.workoutLabel}>
-                {runEvent.workout_label}
-              </ThemedText>
-            ) : null}
-            {startTrack ? (
-              <ThemedText type="small" themeColor="textSecondary" style={styles.startTrack}>
-                🎧 Headed out to {startTrack.track} — {startTrack.artist}
-              </ThemedText>
-            ) : null}
-          </Card>
-
-          {/* Live location card (v2 groundwork) */}
-          {isRunning ? (
-            <Card>
-              <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionLabel}>
-                LIVE LOCATION
-              </ThemedText>
-              {position ? (
-                // TODO(v2): drop a react-native-maps <MapView> here with a marker
-                // at {position.lat, position.lng} and a breadcrumb trail.
-                <View>
-                  <ThemedText type="default">
-                    {position.lat.toFixed(5)}, {position.lng.toFixed(5)}
-                  </ThemedText>
-                  <ThemedText type="small" themeColor="textSecondary">
-                    Updated {clockTime(position.recorded_at)} · map coming in v2
-                  </ThemedText>
-                </View>
-              ) : (
-                <ThemedText type="small" themeColor="textSecondary">
-                  Not sharing location for this run.
-                </ThemedText>
-              )}
-            </Card>
-          ) : null}
-
-          {/* Now-playing card */}
-          <Card>
-            <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionLabel}>
-              NOW PLAYING
+          ) : (
+            <ThemedText type="small" themeColor="textSecondary">
+              Not sharing location for this run.
             </ThemedText>
-            {nowPlaying?.isPlaying ? (
-              <View style={styles.npRow}>
-                {nowPlaying.albumArt ? (
-                  <Image source={{ uri: nowPlaying.albumArt }} style={styles.albumArt} />
-                ) : (
-                  <View style={[styles.albumArt, { backgroundColor: theme.backgroundSelected }]} />
-                )}
-                <View style={styles.npBody}>
-                  <ThemedText type="default" numberOfLines={1} style={styles.track}>
-                    {nowPlaying.track}
-                  </ThemedText>
-                  <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
-                    {nowPlaying.artist}
-                  </ThemedText>
-                  <ProgressBar progressMs={progressMs} durationMs={nowPlaying.durationMs} />
-                </View>
-              </View>
+          )}
+        </Card>
+      ) : null}
+
+      {/* Now-playing card */}
+      <Card>
+        <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionLabel}>
+          NOW PLAYING
+        </ThemedText>
+        {nowPlaying?.isPlaying ? (
+          <View style={styles.npRow}>
+            {nowPlaying.albumArt ? (
+              <Image source={{ uri: nowPlaying.albumArt }} style={styles.albumArt} />
             ) : (
-              <ThemedText type="small" themeColor="textSecondary">
-                Nothing playing.
-              </ThemedText>
+              <View style={[styles.albumArt, { backgroundColor: theme.backgroundSelected }]} />
             )}
-          </Card>
-        </>
-      )}
+            <View style={styles.npBody}>
+              <ThemedText type="default" numberOfLines={1} style={styles.track}>
+                {nowPlaying.track}
+              </ThemedText>
+              <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+                {nowPlaying.artist}
+              </ThemedText>
+              <ProgressBar progressMs={progressMs} durationMs={nowPlaying.durationMs} />
+            </View>
+          </View>
+        ) : (
+          <ThemedText type="small" themeColor="textSecondary">
+            Nothing playing.
+          </ThemedText>
+        )}
+      </Card>
     </Screen>
   );
 }

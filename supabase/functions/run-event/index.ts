@@ -3,7 +3,7 @@
 //
 // { "event_type": "start", "workout_type": "distance_time", "workout_label": "6mi easy" }
 import { corsHeaders, json } from '../_shared/cors.ts';
-import { adminClient, resolveRunnerFromToken, UnauthorizedError } from '../_shared/env.ts';
+import { adminClient, resolveRunner, UnauthorizedError } from '../_shared/env.ts';
 import { sendExpoPush } from '../_shared/expoPush.ts';
 import { getNowPlaying } from '../_shared/spotify.ts';
 
@@ -21,7 +21,15 @@ Deno.serve(async (req) => {
 
   try {
     const admin = adminClient();
-    const rid = await resolveRunnerFromToken(admin, req);
+    const rid = await resolveRunner(admin, req);
+
+    // Runner's display name for the watcher push ("<name> started a run").
+    const { data: runner } = await admin
+      .from('runners')
+      .select('name')
+      .eq('id', rid)
+      .maybeSingle();
+    const name = runner?.name ?? 'Someone';
 
     const { event_type, workout_type, workout_label } = (await req.json()) as {
       event_type?: string;
@@ -46,7 +54,7 @@ Deno.serve(async (req) => {
       } catch (e) {
         console.warn('now-playing snapshot failed (continuing):', String(e));
       }
-      pushTitle = 'Ben started a run 🏃';
+      pushTitle = `${name} started a run 🏃`;
       pushBody = workout_label ?? 'Heading out';
     } else {
       // Reuse the run_id from the latest open start for this runner.
@@ -64,7 +72,7 @@ Deno.serve(async (req) => {
         const elapsed = Date.now() - new Date(lastStart.created_at).getTime();
         durationLabel = formatDuration(elapsed);
       }
-      pushTitle = 'Ben finished his run ✅';
+      pushTitle = `${name} finished a run ✅`;
       pushBody = durationLabel ? `Out for ${durationLabel}` : (workout_label ?? 'Done');
     }
 
@@ -78,12 +86,22 @@ Deno.serve(async (req) => {
     });
     if (insErr) throw insErr;
 
-    // Notify the crew.
-    const { data: tokenRows } = await admin
-      .from('push_tokens')
-      .select('token')
-      .eq('runner_id', rid);
-    const tokens = (tokenRows ?? []).map((t) => t.token as string);
+    // Notify this runner's approved watchers (each watcher owns their device
+    // tokens in push_tokens, keyed by their own runner_id).
+    const { data: watcherRows } = await admin
+      .from('follows')
+      .select('watcher_id')
+      .eq('runner_id', rid)
+      .eq('status', 'approved');
+    const watcherIds = (watcherRows ?? []).map((w) => w.watcher_id as string);
+    let tokens: string[] = [];
+    if (watcherIds.length > 0) {
+      const { data: tokenRows } = await admin
+        .from('push_tokens')
+        .select('token')
+        .in('runner_id', watcherIds);
+      tokens = (tokenRows ?? []).map((t) => t.token as string);
+    }
     await sendExpoPush(tokens, { title: pushTitle, body: pushBody });
 
     return json({ ok: true, run_id: runId, notified: tokens.length });

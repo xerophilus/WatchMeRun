@@ -9,6 +9,14 @@ export type WorkoutType = 'open' | 'distance_time' | 'custom' | 'rest';
 export type ScheduleDay = Tables<'weekly_schedule'>;
 export type Race = Tables<'races'>;
 export type LivePosition = Tables<'live_positions'>;
+export type Runner = Tables<'runners'>;
+export type Invite = Tables<'invites'>;
+
+export type FollowStatus = 'pending' | 'approved';
+export type Follow = Omit<Tables<'follows'>, 'status'> & { status: FollowStatus };
+
+/** A follow request someone sent me (with their profile), awaiting my approval. */
+export type IncomingRequest = { follow: Follow; watcher: Runner };
 
 export type NowPlaying =
   | { isPlaying: false }

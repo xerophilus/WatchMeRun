@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { Card } from '@/components/card';
+import { PersonSwitcher } from '@/components/person-switcher';
 import { ScheduleEditor } from '@/components/schedule-editor';
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
@@ -9,8 +10,8 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { usePushRegistration } from '@/hooks/use-push';
 import { fetchLatestWeek } from '@/lib/api';
-import { isConfigured, isRunner } from '@/lib/config';
 import { fullDate, isToday, weekdayShort } from '@/lib/date';
+import { useSession } from '@/lib/session';
 import type { ScheduleDay, WorkoutType } from '@/lib/types';
 
 const WORKOUT_GLYPH: Record<WorkoutType, string> = {
@@ -26,6 +27,11 @@ function glyph(type: string | null): string {
 
 export default function ThisWeekScreen() {
   const theme = useTheme();
+  const { me, watching, viewedId } = useSession();
+  const targetId = viewedId ?? me?.id ?? null;
+  const isSelf = targetId === me?.id;
+  const viewedRunner = isSelf ? me : watching.find((w) => w.id === targetId);
+
   const [days, setDays] = useState<ScheduleDay[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -33,19 +39,17 @@ export default function ThisWeekScreen() {
   const push = usePushRegistration();
 
   const load = useCallback(async () => {
+    if (!targetId) return;
     try {
       setError(null);
-      setDays(await fetchLatestWeek());
+      setDays(await fetchLatestWeek(targetId));
     } catch (e) {
       setError(String(e));
     }
-  }, []);
+  }, [targetId]);
 
   useEffect(() => {
-    if (!isConfigured) {
-      setLoading(false);
-      return;
-    }
+    setLoading(true);
     load().finally(() => setLoading(false));
   }, [load]);
 
@@ -55,29 +59,24 @@ export default function ThisWeekScreen() {
     setRefreshing(false);
   }, [load]);
 
+  const subtitle = isSelf
+    ? 'Your training schedule'
+    : `${viewedRunner?.name ?? 'Their'}'s training schedule`;
+
   return (
-    <Screen
-      title="This Week"
-      subtitle="Ben's current training schedule"
-      refreshing={refreshing}
-      onRefresh={isConfigured ? onRefresh : undefined}>
+    <Screen title="This Week" subtitle={subtitle} refreshing={refreshing} onRefresh={onRefresh}>
+      <PersonSwitcher />
+
       {push?.status === 'denied' ? (
         <Card style={styles.banner}>
           <ThemedText type="smallBold">Enable notifications</ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
-            Turn on notifications in Settings to know when Ben heads out.
+            Turn on notifications in Settings to know when your crew heads out.
           </ThemedText>
         </Card>
       ) : null}
-      {!isConfigured ? (
-        <Card>
-          <ThemedText type="smallBold">Not configured yet</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
-            Set EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY and
-            EXPO_PUBLIC_RUNNER_ID in your .env (see .env.example).
-          </ThemedText>
-        </Card>
-      ) : loading ? (
+
+      {loading ? (
         <ActivityIndicator style={styles.loader} />
       ) : error ? (
         <Card>
@@ -88,7 +87,7 @@ export default function ThisWeekScreen() {
       ) : days.length === 0 ? (
         <Card>
           <ThemedText type="small" themeColor="textSecondary">
-            No schedule posted yet.
+            {isSelf ? 'No schedule yet — paste one below.' : 'No schedule posted yet.'}
           </ThemedText>
         </Card>
       ) : (
@@ -124,7 +123,8 @@ export default function ThisWeekScreen() {
           );
         })
       )}
-      {isConfigured && isRunner && !loading && !error ? (
+
+      {isSelf && !loading && !error ? (
         <ScheduleEditor week={days} weekStart={days[0]?.week_start ?? null} onSaved={load} />
       ) : null}
     </Screen>

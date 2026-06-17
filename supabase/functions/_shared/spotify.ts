@@ -18,24 +18,52 @@ type Secrets = {
   refreshToken: string;
 };
 
+/**
+ * App-level Spotify credentials, shared by every runner. Prefer Edge Function
+ * env vars (SPOTIFY_CLIENT_ID / SPOTIFY_CLIENT_SECRET); fall back to the
+ * originally seeded runner's app_secrets rows so the pre-OAuth setup keeps
+ * working. The redirect URI must match one registered in the Spotify dashboard.
+ */
+export async function appCredentials(
+  admin: SupabaseClient,
+): Promise<{ clientId: string; clientSecret: string; redirectUri: string }> {
+  let clientId = Deno.env.get('SPOTIFY_CLIENT_ID');
+  let clientSecret = Deno.env.get('SPOTIFY_CLIENT_SECRET');
+
+  if (!clientId || !clientSecret) {
+    const { data } = await admin
+      .from('app_secrets')
+      .select('key, value')
+      .in('key', ['spotify_client_id', 'spotify_client_secret']);
+    const map = new Map((data ?? []).map((r: { key: string; value: string }) => [r.key, r.value]));
+    clientId = clientId || map.get('spotify_client_id');
+    clientSecret = clientSecret || map.get('spotify_client_secret');
+  }
+  if (!clientId || !clientSecret) {
+    throw new Error('Missing Spotify app credentials (set SPOTIFY_CLIENT_ID / SPOTIFY_CLIENT_SECRET).');
+  }
+
+  const redirectUri =
+    Deno.env.get('SPOTIFY_REDIRECT_URI') ??
+    `${Deno.env.get('SUPABASE_URL')}/functions/v1/spotify-callback`;
+  return { clientId, clientSecret, redirectUri };
+}
+
 async function loadSecrets(admin: SupabaseClient, runnerId: string): Promise<Secrets> {
+  const { clientId, clientSecret } = await appCredentials(admin);
+
+  // Each runner's own refresh token, written by spotify-callback on connect.
   const { data, error } = await admin
     .from('app_secrets')
-    .select('key, value')
+    .select('value')
     .eq('runner_id', runnerId)
-    .in('key', ['spotify_client_id', 'spotify_client_secret', 'spotify_refresh_token']);
-
+    .eq('key', 'spotify_refresh_token')
+    .maybeSingle();
   if (error) throw error;
 
-  const map = new Map(
-    (data ?? []).map((r: { key: string; value: string }) => [r.key, r.value]),
-  );
-  const clientId = map.get('spotify_client_id');
-  const clientSecret = map.get('spotify_client_secret');
-  const refreshToken = map.get('spotify_refresh_token');
-
-  if (!clientId || !clientSecret || !refreshToken) {
-    throw new Error('Spotify secrets missing for runner; see §4 of the spec.');
+  const refreshToken = data?.value as string | undefined;
+  if (!refreshToken) {
+    throw new Error('This runner has not connected Spotify.');
   }
   return { clientId, clientSecret, refreshToken };
 }
