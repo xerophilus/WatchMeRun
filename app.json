@@ -4,7 +4,7 @@
     "slug": "watchmerun",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/crewd-icon-1024.png",
     "scheme": "crewd",
     "userInterfaceStyle": "automatic",
     "ios": {
@@ -18,14 +18,14 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#005B57",
-        "foregroundImage": "./assets/images/android-icon-foreground.png"
+        "backgroundColor": "#05060A",
+        "foregroundImage": "./assets/images/crewd-icon-1024.png"
       },
       "predictiveBackGestureEnabled": false
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/crewd-favicon-48.png"
     },
     "plugins": [
       "expo-router",
