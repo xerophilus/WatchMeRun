@@ -217,6 +217,56 @@ export async function fetchRaces(runnerId: string): Promise<Race[]> {
   return data ?? [];
 }
 
+/** Fields the race editor collects (runner_id comes from the signed-in user). */
+export type RaceInput = {
+  name: string;
+  race_date: string;
+  distance?: string | null;
+  location?: string | null;
+  is_a_race?: boolean;
+  notes?: string | null;
+};
+
+function raceRow(race: RaceInput) {
+  return {
+    name: race.name,
+    race_date: race.race_date,
+    distance: race.distance || null,
+    location: race.location || null,
+    is_a_race: race.is_a_race ?? false,
+    notes: race.notes || null,
+  };
+}
+
+/** Add a race to my own calendar. RLS only lets me write my own rows. */
+export async function createRace(meId: string, race: RaceInput): Promise<Race> {
+  const { data, error } = await supabase
+    .from('races')
+    .insert({ runner_id: meId, ...raceRow(race) })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+/** Update one of my races. */
+export async function updateRace(raceId: string, race: RaceInput): Promise<Race> {
+  const { data, error } = await supabase
+    .from('races')
+    .update(raceRow(race))
+    .eq('id', raceId)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+/** Remove one of my races. */
+export async function deleteRace(raceId: string): Promise<void> {
+  const { error } = await supabase.from('races').delete().eq('id', raceId);
+  if (error) throw error;
+}
+
 /** The single most recent run event (start or stop), for the Live status card. */
 export async function fetchLatestRunEvent(runnerId: string): Promise<RunEvent | null> {
   const { data, error } = await supabase

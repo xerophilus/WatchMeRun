@@ -68,18 +68,36 @@ export function SessionProvider({ children }: PropsWithChildren) {
     let mounted = true;
     const active = () => mounted;
 
-    supabase.auth.getSession().then(async ({ data }) => {
-      if (!active()) return;
-      setSession(data.session);
-      if (data.session) await loadProfile(active);
-      if (active()) setLoading(false);
-    });
+    supabase.auth
+      .getSession()
+      .then(async ({ data }) => {
+        if (!active()) return;
+        setSession(data.session);
+        if (data.session) await loadProfile(active);
+      })
+      .catch(() => {
+        // Fall through: clearing `loading` below routes to sign-in rather than
+        // leaving the app stuck on the splash spinner.
+      })
+      .finally(() => {
+        if (active()) setLoading(false);
+      });
 
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, next) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, next) => {
       if (!active()) return;
+      // The initial session is already handled by getSession() above.
+      if (event === 'INITIAL_SESSION') return;
       setSession(next);
       if (next) {
-        await loadProfile(active);
+        // IMPORTANT: never await another supabase call synchronously inside this
+        // callback. supabase-js holds an internal auth lock for the callback's
+        // duration, and loadProfile() -> provisionRunner() calls getSession()
+        // again — doing that here deadlocks and hangs the app on the splash
+        // spinner. Defer the profile load so the callback returns and frees the
+        // lock first.
+        setTimeout(() => {
+          if (active()) loadProfile(active);
+        }, 0);
       } else {
         setMe(null);
         setWatching([]);
