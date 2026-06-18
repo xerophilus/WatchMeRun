@@ -6,6 +6,7 @@ import { AddWorkoutSheet, type NewSession } from '@/components/add-workout-sheet
 import { AthleteScheduleCard } from '@/components/athlete-schedule-card';
 import { Card } from '@/components/card';
 import { IconTile } from '@/components/icon-tile';
+import { ScheduleEditor } from '@/components/schedule-editor';
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
 import { Font, Spacing, withAlpha } from '@/constants/theme';
@@ -203,6 +204,11 @@ export default function ThisWeekScreen() {
       {tab === 'mine'
         ? renderMine({ theme, loading, error, summary, dates, byDay, openSheet, removeSession, saving })
         : renderWatching({ watching, watchingWeeks, watchingLoading })}
+
+      {/* Bulk entry: paste a whole week, then tweak day-by-day above. */}
+      {tab === 'mine' && !loading && !error ? (
+        <ScheduleEditor week={days} weekStart={days[0]?.week_start ?? null} onSaved={loadMine} />
+      ) : null}
 
       <AddWorkoutSheet
         visible={sheet.visible}
