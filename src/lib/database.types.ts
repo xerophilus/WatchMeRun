@@ -321,6 +321,7 @@ export type Database = {
           day_date: string
           detail: string | null
           id: string
+          position: number
           runner_id: string
           title: string
           week_start: string
@@ -331,6 +332,7 @@ export type Database = {
           day_date: string
           detail?: string | null
           id?: string
+          position?: number
           runner_id: string
           title: string
           week_start: string
@@ -341,6 +343,7 @@ export type Database = {
           day_date?: string
           detail?: string | null
           id?: string
+          position?: number
           runner_id?: string
           title?: string
           week_start?: string

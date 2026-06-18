@@ -70,10 +70,11 @@ export function ScheduleEditor({
       <Pressable onPress={expand}>
         <Card>
           <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionLabel}>
-            EDIT SCHEDULE
+            PASTE A WEEK
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
-            Paste a week to update {week.length > 0 ? 'this' : 'the'} schedule.
+            Paste a whole week to {week.length > 0 ? 'replace this' : 'set the'} schedule, then tweak
+            it day by day above.
           </ThemedText>
         </Card>
       </Pressable>

@@ -1,35 +1,15 @@
-import { SymbolView, type SymbolViewProps } from 'expo-symbols';
+import { SymbolView } from 'expo-symbols';
 import { StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { withAlpha } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import type { WorkoutType } from '@/lib/types';
-
-// SF Symbol per workout type, with an emoji fallback for platforms without
-// SF Symbols (Android/web) — mirrors the per-kind glyphs in the design.
-const WORKOUT_SYMBOL: Record<WorkoutType, SymbolViewProps['name']> = {
-  distance_time: 'figure.run',
-  custom: 'bolt.fill',
-  rest: 'moon.zzz.fill',
-  open: 'safari.fill',
-};
-
-const WORKOUT_EMOJI: Record<WorkoutType, string> = {
-  distance_time: '🏃',
-  custom: '⚡️',
-  rest: '😴',
-  open: '🧭',
-};
-
-function asWorkoutType(type: string | null | undefined): WorkoutType {
-  return type && type in WORKOUT_SYMBOL ? (type as WorkoutType) : 'distance_time';
-}
+import { SESSION_TYPE_META, toSessionType } from '@/lib/session-type';
 
 /**
  * A rounded square holding a workout icon. Tinted (soft-accent bg + accent
- * glyph) for runs and today; muted otherwise. Recreated from the design's
- * `<Tile>` using SF Symbols.
+ * glyph) for runs and today; muted otherwise. The glyph is chosen from the
+ * session type (SF Symbol on iOS, emoji fallback elsewhere).
  */
 export function IconTile({
   workoutType,
@@ -41,7 +21,7 @@ export function IconTile({
   size?: number;
 }) {
   const theme = useTheme();
-  const type = asWorkoutType(workoutType);
+  const meta = SESSION_TYPE_META[toSessionType(workoutType)];
   const fg = tint ? theme.accent : theme.textSecondary;
 
   return (
@@ -56,11 +36,11 @@ export function IconTile({
         },
       ]}>
       <SymbolView
-        name={WORKOUT_SYMBOL[type]}
+        name={meta.symbol}
         size={Math.round(size * 0.5)}
         tintColor={fg}
         weight="semibold"
-        fallback={<ThemedText style={{ fontSize: Math.round(size * 0.46) }}>{WORKOUT_EMOJI[type]}</ThemedText>}
+        fallback={<ThemedText style={{ fontSize: Math.round(size * 0.46) }}>{meta.emoji}</ThemedText>}
       />
     </View>
   );

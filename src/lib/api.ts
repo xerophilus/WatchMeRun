@@ -185,7 +185,8 @@ export async function fetchWeek(runnerId: string, weekStart: string): Promise<Sc
     .select('*')
     .eq('runner_id', runnerId)
     .eq('week_start', weekStart)
-    .order('day_date', { ascending: true });
+    .order('day_date', { ascending: true })
+    .order('position', { ascending: true });
   if (error) throw error;
   return data ?? [];
 }
@@ -197,7 +198,8 @@ export async function fetchLatestWeek(runnerId: string): Promise<ScheduleDay[]> 
     .select('*')
     .eq('runner_id', runnerId)
     .order('week_start', { ascending: false })
-    .order('day_date', { ascending: true });
+    .order('day_date', { ascending: true })
+    .order('position', { ascending: true });
   if (error) throw error;
   const rows = data ?? [];
   if (rows.length === 0) return [];
@@ -299,11 +301,15 @@ export async function postPosition(lat: number, lng: number, runId: string): Pro
 /**
  * Replace a week of my own schedule. Writes directly under RLS (which only lets
  * me touch my own rows) — no Edge Function needed now that the app is authed.
+ *
+ * A day can hold several sessions (AM/PM doubles); `position` records their
+ * order within the day, assigned from the order sessions appear in `sessions`
+ * (which the caller keeps grouped/sorted by date).
  */
 export async function updateWeek(
   meId: string,
   weekStart: string,
-  days: { day_date: string; title: string; detail?: string; workout_type?: string }[],
+  sessions: { day_date: string; title: string; detail?: string; workout_type?: string }[],
 ): Promise<number> {
   const { error: delErr } = await supabase
     .from('weekly_schedule')
@@ -312,15 +318,21 @@ export async function updateWeek(
     .eq('week_start', weekStart);
   if (delErr) throw delErr;
 
-  if (days.length === 0) return 0;
-  const rows = days.map((d) => ({
-    runner_id: meId,
-    week_start: weekStart,
-    day_date: d.day_date,
-    title: d.title,
-    detail: d.detail ?? null,
-    workout_type: d.workout_type ?? null,
-  }));
+  if (sessions.length === 0) return 0;
+  const positionByDay: Record<string, number> = {};
+  const rows = sessions.map((s) => {
+    const position = positionByDay[s.day_date] ?? 0;
+    positionByDay[s.day_date] = position + 1;
+    return {
+      runner_id: meId,
+      week_start: weekStart,
+      day_date: s.day_date,
+      title: s.title,
+      detail: s.detail ?? null,
+      workout_type: s.workout_type ?? null,
+      position,
+    };
+  });
   const { error: insErr } = await supabase.from('weekly_schedule').insert(rows);
   if (insErr) throw insErr;
   return rows.length;

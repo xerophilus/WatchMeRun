@@ -28,6 +28,16 @@ export function todayIso(): string {
   return toIso(new Date());
 }
 
+/** `iso` shifted by `n` whole days (negative = earlier), as YYYY-MM-DD. */
+export function addDays(iso: string, n: number): string {
+  return toIso(new Date(toLocalDate(iso).getTime() + n * DAY_MS));
+}
+
+/** The seven YYYY-MM-DD dates of the week starting at `weekStart` (Mon → Sun). */
+export function weekDates(weekStart: string): string[] {
+  return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+}
+
 export function isToday(iso: string): boolean {
   return iso === todayIso();
 }

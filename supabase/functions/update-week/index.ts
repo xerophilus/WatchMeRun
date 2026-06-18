@@ -43,19 +43,26 @@ Deno.serve(async (req) => {
       .eq('week_start', week_start);
     if (delErr) throw delErr;
 
-    const rows = days.map((d) => ({
-      runner_id: rid,
-      week_start,
-      day_date: d.day_date,
-      title: d.title,
-      workout_type: d.workout_type ?? null,
-      detail: d.detail ?? null,
-    }));
+    // A day can hold several sessions (AM/PM doubles); `position` records their
+    // order within the day. The week was just cleared above, so a plain insert
+    // is correct — there's no longer a (runner_id, day_date) unique to upsert on.
+    const positionByDay: Record<string, number> = {};
+    const rows = days.map((d) => {
+      const position = positionByDay[d.day_date] ?? 0;
+      positionByDay[d.day_date] = position + 1;
+      return {
+        runner_id: rid,
+        week_start,
+        day_date: d.day_date,
+        title: d.title,
+        workout_type: d.workout_type ?? null,
+        detail: d.detail ?? null,
+        position,
+      };
+    });
 
     if (rows.length > 0) {
-      const { error: insErr } = await admin
-        .from('weekly_schedule')
-        .upsert(rows, { onConflict: 'runner_id, day_date' });
+      const { error: insErr } = await admin.from('weekly_schedule').insert(rows);
       if (insErr) throw insErr;
     }
 
