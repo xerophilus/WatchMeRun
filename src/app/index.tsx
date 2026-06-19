@@ -8,6 +8,7 @@ import { Card } from '@/components/card';
 import { IconTile } from '@/components/icon-tile';
 import { ScheduleEditor } from '@/components/schedule-editor';
 import { Screen } from '@/components/screen';
+import { SegmentedControl } from '@/components/segmented-control';
 import { ThemedText } from '@/components/themed-text';
 import { Font, Spacing, withAlpha } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -156,23 +157,14 @@ export default function ThisWeekScreen() {
 
   const header = (
     <View style={styles.segmentRow}>
-      <View style={[styles.segment, { backgroundColor: theme.backgroundSelected }]}>
-        {(['mine', 'watching'] as const).map((t) => {
-          const active = tab === t;
-          return (
-            <Pressable
-              key={t}
-              onPress={() => setTab(t)}
-              style={[styles.segmentItem, active && { backgroundColor: theme.backgroundElement }]}>
-              <ThemedText
-                type="smallBold"
-                style={{ color: active ? theme.text : theme.textSecondary }}>
-                {t === 'mine' ? 'Mine' : 'Watching'}
-              </ThemedText>
-            </Pressable>
-          );
-        })}
-      </View>
+      <SegmentedControl
+        value={tab}
+        onChange={setTab}
+        options={[
+          { value: 'mine', label: 'Mine' },
+          { value: 'watching', label: 'Watching' },
+        ]}
+      />
       {tab === 'mine' ? (
         <Pressable
           onPress={openForToday}
@@ -403,14 +395,6 @@ const styles = StyleSheet.create({
 
   // Header: segmented control + add button
   segmentRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, marginTop: Spacing.two },
-  segment: { flex: 1, flexDirection: 'row', borderRadius: Spacing.two, padding: 3 },
-  segmentItem: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: Spacing.two,
-    borderRadius: Spacing.one + 2,
-  },
   addButton: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   addPlus: { color: '#fff', fontSize: 22, lineHeight: 26 },
 

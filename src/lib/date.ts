@@ -42,6 +42,15 @@ export function isToday(iso: string): boolean {
   return iso === todayIso();
 }
 
+const ISO_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** True for a real YYYY-MM-DD calendar date (rejects e.g. 2026-13-40). */
+export function isValidIsoDate(s: string): boolean {
+  if (!ISO_RE.test(s)) return false;
+  const d = new Date(`${s}T00:00:00`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
+}
+
 /** "Mon", "Tue", ... */
 export function weekdayShort(iso: string): string {
   return toLocalDate(iso).toLocaleDateString(undefined, { weekday: 'short' });
