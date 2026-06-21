@@ -1,357 +1,113 @@
-import { Image } from 'expo-image';
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { Card } from '@/components/card';
-import { LiveDot } from '@/components/live-dot';
-import { PersonSwitcher } from '@/components/person-switcher';
+import { LiveCard } from '@/components/live-detail';
 import { Screen } from '@/components/screen';
+import { SegmentedControl } from '@/components/segmented-control';
 import { StartRunControl } from '@/components/start-run-control';
-import { TrackingMap } from '@/components/tracking-map';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
-import { fetchLatestRunEvent, fetchNowPlaying, fetchRunPath } from '@/lib/api';
-import { clockTime, elapsedSince } from '@/lib/date';
-import { pathDistanceMeters } from '@/lib/geo';
-import { parseRunGoal } from '@/lib/run-apps';
+import { useLiveStatus } from '@/hooks/use-live-status';
 import { useSession } from '@/lib/session';
-import { supabase } from '@/lib/supabase';
-import type { LivePosition, NowPlaying, RunEvent } from '@/lib/types';
+import type { Runner } from '@/lib/types';
 
-const POLL_MS = 30_000;
-
-function msToClock(ms: number): string {
-  const total = Math.floor(ms / 1000);
-  const m = Math.floor(total / 60);
-  const s = total % 60;
-  return `${m}:${String(s).padStart(2, '0')}`;
-}
+type Tab = 'mine' | 'watching';
 
 export default function LiveScreen() {
-  const theme = useTheme();
-  const { me, watching, viewedId } = useSession();
-  const targetId = viewedId ?? me?.id ?? null;
-  const isSelf = targetId === me?.id;
-  const viewedRunner = isSelf ? me : watching.find((w) => w.id === targetId);
+  const { me, watching } = useSession();
 
-  const [runEvent, setRunEvent] = useState<RunEvent | null>(null);
-  const [nowPlaying, setNowPlaying] = useState<NowPlaying | null>(null);
-  const [path, setPath] = useState<LivePosition[]>([]);
+  // Default to Watching — the point of Live is seeing who's out right now.
+  const [tab, setTab] = useState<Tab>(watching.length > 0 ? 'watching' : 'mine');
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  // Remounts the cards to force a refetch on pull-to-refresh.
+  const [refreshKey, setRefreshKey] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
-  // Locally-advanced playback position for a smooth progress bar between polls.
-  const [progressMs, setProgressMs] = useState(0);
-  const lastSync = useRef<number>(Date.now());
-  // Re-render once a second so elapsed time + run progress advance between polls.
-  const [, setTick] = useState(0);
 
-  const load = useCallback(async () => {
-    if (!targetId) return;
-    const [event, np] = await Promise.all([
-      fetchLatestRunEvent(targetId).catch(() => null),
-      fetchNowPlaying(targetId).catch(() => ({ isPlaying: false }) as NowPlaying),
-    ]);
-    setRunEvent(event);
-    setNowPlaying(np);
-    if (np.isPlaying) {
-      setProgressMs(np.progressMs);
-      lastSync.current = Date.now();
-    }
-    // Only an in-progress run has a live trail worth showing.
-    const runId = event?.event_type === 'start' ? event.run_id : null;
-    setPath(await fetchRunPath(targetId, runId).catch(() => []));
-  }, [targetId]);
-
-  // Poll (covers Spotify, which can't be realtime) + subscribe to run/position
-  // changes for instant start/stop and GPS updates, while the screen is focused.
+  // Only poll / subscribe while the Live screen is actually focused.
+  const [focused, setFocused] = useState(true);
   useFocusEffect(
     useCallback(() => {
-      if (!targetId) return;
-      load();
-      const interval = setInterval(load, POLL_MS);
-
-      const channel = supabase
-        .channel(`live-${targetId}`)
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'run_events', filter: `runner_id=eq.${targetId}` },
-          () => load(),
-        )
-        .on(
-          'postgres_changes',
-          { event: 'INSERT', schema: 'public', table: 'live_positions', filter: `runner_id=eq.${targetId}` },
-          () => load(),
-        )
-        .subscribe();
-
-      return () => {
-        clearInterval(interval);
-        supabase.removeChannel(channel);
-      };
-    }, [load, targetId]),
+      setFocused(true);
+      return () => setFocused(false);
+    }, []),
   );
 
-  // Tick the progress bar locally each second between polls.
-  useEffect(() => {
-    if (!nowPlaying?.isPlaying) return;
-    const id = setInterval(() => {
-      const synced = nowPlaying.progressMs + (Date.now() - lastSync.current);
-      setProgressMs(Math.min(synced, nowPlaying.durationMs));
-    }, 1000);
-    return () => clearInterval(id);
-  }, [nowPlaying]);
-
-  // Tick every second while a run is in progress.
-  useEffect(() => {
-    if (runEvent?.event_type !== 'start') return;
-    const id = setInterval(() => setTick((t) => t + 1), 1000);
-    return () => clearInterval(id);
-  }, [runEvent]);
-
-  const onRefresh = useCallback(async () => {
+  const onRefresh = useCallback(() => {
     setRefreshing(true);
-    await load();
-    setRefreshing(false);
-  }, [load]);
+    setRefreshKey((k) => k + 1);
+    setTimeout(() => setRefreshing(false), 600);
+  }, []);
 
-  const isRunning = runEvent?.event_type === 'start';
-  const elapsedSec =
-    isRunning && runEvent?.created_at
-      ? Math.max(0, Math.floor((Date.now() - new Date(runEvent.created_at).getTime()) / 1000))
-      : 0;
-  // Real telemetry from the GPS breadcrumb trail; null until ≥2 points land, so
-  // the card falls back to the pace estimate the design provides.
-  const latlngs = useMemo(() => path.map((p) => ({ lat: p.lat, lng: p.lng })), [path]);
-  const distanceMeters = useMemo(
-    () => (latlngs.length > 1 ? pathDistanceMeters(latlngs) : null),
-    [latlngs],
+  const header = (
+    <View style={styles.segmentRow}>
+      <SegmentedControl
+        value={tab}
+        onChange={setTab}
+        options={[
+          { value: 'mine', label: 'Mine' },
+          { value: 'watching', label: 'Watching' },
+        ]}
+      />
+    </View>
   );
-  const position = path.length ? path[path.length - 1] : null;
-  const current = position ? { lat: position.lat, lng: position.lng } : null;
-  const startTrack = isRunning && runEvent?.track_snapshot?.isPlaying ? runEvent.track_snapshot : null;
-  const subtitle = isSelf
-    ? "What you're up to right now"
-    : `What ${viewedRunner?.name ?? 'they'} are up to right now`;
 
   return (
-    <Screen title="Live" subtitle={subtitle} refreshing={refreshing} onRefresh={onRefresh}>
-      <PersonSwitcher />
-
-      {/* You can only start/stop your own run. */}
-      {isSelf ? <StartRunControl runEvent={runEvent} onChanged={load} /> : null}
-
-      {/* Run status card */}
-      <Card highlighted={isRunning}>
-        <View style={styles.statusRow}>
-          <LiveDot color={isRunning ? theme.accent : theme.textSecondary} />
-          <ThemedText type="default" style={styles.statusText}>
-            {isRunning ? 'Running' : 'Resting'}
-          </ThemedText>
-        </View>
-        {runEvent ? (
-          <ThemedText type="small" themeColor="textSecondary">
-            {isRunning
-              ? `Since ${clockTime(runEvent.created_at!)} · ${elapsedSince(runEvent.created_at!)}`
-              : `Last run ended ${clockTime(runEvent.created_at!)}`}
-          </ThemedText>
-        ) : (
-          <ThemedText type="small" themeColor="textSecondary">
-            No runs logged yet.
-          </ThemedText>
-        )}
-        {isRunning && runEvent?.workout_label ? (
-          <ThemedText type="small" style={styles.workoutLabel}>
-            {runEvent.workout_label}
-          </ThemedText>
-        ) : null}
-        {isRunning && runEvent ? (
-          <RunProgress runEvent={runEvent} elapsedSec={elapsedSec} distanceMeters={distanceMeters} />
-        ) : null}
-        {startTrack ? (
-          <ThemedText type="small" themeColor="textSecondary" style={styles.startTrack}>
-            🎧 Headed out to {startTrack.track} — {startTrack.artist}
-          </ThemedText>
-        ) : null}
-      </Card>
-
-      {/* Live location card (v2 groundwork) */}
-      {isRunning ? (
+    <Screen title="Live" subtitle={header} refreshing={refreshing} onRefresh={onRefresh}>
+      {tab === 'mine' ? (
+        me ? (
+          <MyLive key={refreshKey} me={me} active={focused} />
+        ) : null
+      ) : watching.length === 0 ? (
         <Card>
-          <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionLabel}>
-            LIVE LOCATION
-          </ThemedText>
-          {position ? (
-            <View style={styles.mapWrap}>
-              <TrackingMap
-                elapsedSec={elapsedSec}
-                distanceMeters={distanceMeters}
-                path={latlngs}
-                current={current}
-              />
-              <ThemedText type="small" themeColor="textSecondary" style={styles.mapCaption}>
-                Updated {clockTime(position.recorded_at)} · {position.lat.toFixed(4)}, {position.lng.toFixed(4)}
-              </ThemedText>
-            </View>
-          ) : (
-            <ThemedText type="small" themeColor="textSecondary">
-              Not sharing location for this run.
-            </ThemedText>
-          )}
-        </Card>
-      ) : null}
-
-      {/* Now-playing card */}
-      <Card>
-        <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionLabel}>
-          NOW PLAYING
-        </ThemedText>
-        {nowPlaying?.isPlaying ? (
-          <View style={styles.npRow}>
-            {nowPlaying.albumArt ? (
-              <Image source={{ uri: nowPlaying.albumArt }} style={styles.albumArt} />
-            ) : (
-              <View style={[styles.albumArt, { backgroundColor: theme.backgroundSelected }]} />
-            )}
-            <View style={styles.npBody}>
-              <ThemedText type="default" numberOfLines={1} style={styles.track}>
-                {nowPlaying.track}
-              </ThemedText>
-              <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
-                {nowPlaying.artist}
-              </ThemedText>
-              <ProgressBar progressMs={progressMs} durationMs={nowPlaying.durationMs} />
-            </View>
-          </View>
-        ) : (
           <ThemedText type="small" themeColor="textSecondary">
-            Nothing playing.
+            You&apos;re not watching anyone yet. Add people from the Crew tab to see when they head
+            out.
           </ThemedText>
-        )}
-      </Card>
+        </Card>
+      ) : (
+        watching.map((w) => (
+          <LiveRunnerCard
+            key={`${w.id}-${refreshKey}`}
+            runner={w}
+            active={focused}
+            expanded={Boolean(expanded[w.id])}
+            onToggle={() => setExpanded((e) => ({ ...e, [w.id]: !e[w.id] }))}
+          />
+        ))
+      )}
     </Screen>
   );
 }
 
-// ~9:30/mi easy pace — matches the tracking-map estimate. Used to turn a
-// distance goal into a target time until real GPS distance is available.
-const SEC_PER_MI = 570;
-const KM_TO_MI = 0.621371;
-
-function fmtClock(sec: number): string {
-  const t = Math.max(0, Math.floor(sec));
-  const h = Math.floor(t / 3600);
-  const m = Math.floor((t % 3600) / 60);
-  const s = t % 60;
-  const mm = h ? String(m).padStart(2, '0') : String(m);
-  return `${h ? `${h}:` : ''}${mm}:${String(s).padStart(2, '0')}`;
+/** Your own run: the Start control plus an always-expanded live card. */
+function MyLive({ me, active }: { me: Runner; active: boolean }) {
+  const status = useLiveStatus(me.id, active);
+  return (
+    <>
+      <StartRunControl runEvent={status.runEvent} onChanged={status.reload} />
+      <LiveCard title="You" status={status} expanded />
+    </>
+  );
 }
 
-const METERS_PER_MI = 1609.344;
-
-/**
- * Progress toward the planned workout. Exact for a time goal, and exact for a
- * distance goal once GPS supplies `distanceMeters`; until then a distance goal
- * is estimated from an easy pace. Nothing to show for an open/unplanned run.
- */
-function RunProgress({
-  runEvent,
-  elapsedSec,
-  distanceMeters = null,
+/** A watched runner in the feed: collapsible live card. */
+function LiveRunnerCard({
+  runner,
+  active,
+  expanded,
+  onToggle,
 }: {
-  runEvent: RunEvent;
-  elapsedSec: number;
-  distanceMeters?: number | null;
+  runner: Runner;
+  active: boolean;
+  expanded: boolean;
+  onToggle: () => void;
 }) {
-  const theme = useTheme();
-  const goal = parseRunGoal(runEvent.workout_type ?? undefined, runEvent.workout_label);
-
-  let pct: number | null = null;
-  let left = '';
-  let right = '';
-  let estimated = false;
-
-  if (goal.kind === 'time') {
-    const targetSec = goal.minutes * 60;
-    pct = (elapsedSec / targetSec) * 100;
-    left = fmtClock(elapsedSec);
-    right = `${fmtClock(targetSec)} goal`;
-  } else if (goal.kind === 'distance') {
-    const goalMi = goal.unit === 'km' ? goal.value * KM_TO_MI : goal.value;
-    if (distanceMeters != null) {
-      const doneMi = distanceMeters / METERS_PER_MI;
-      pct = (doneMi / goalMi) * 100;
-      left = `${doneMi.toFixed(2)} mi`;
-      right = `${+goalMi.toFixed(1)} mi goal`;
-    } else {
-      const targetSec = goalMi * SEC_PER_MI;
-      pct = (elapsedSec / targetSec) * 100;
-      left = fmtClock(elapsedSec);
-      right = `~${fmtClock(targetSec)} goal`;
-      estimated = true;
-    }
-  }
-  if (pct == null) return null;
-
-  return (
-    <View style={styles.runProgress}>
-      <View style={[styles.runTrack, { backgroundColor: theme.backgroundSelected }]}>
-        <View
-          style={[styles.runFill, { width: `${Math.min(100, pct)}%`, backgroundColor: theme.accent }]}
-        />
-      </View>
-      <View style={styles.timeRow}>
-        <ThemedText type="smallBold">{left}</ThemedText>
-        <ThemedText type="small" themeColor="textSecondary">
-          {right}
-        </ThemedText>
-      </View>
-      {estimated ? (
-        <ThemedText type="small" themeColor="textSecondary">
-          Estimated from the plan · real pace &amp; distance land with GPS.
-        </ThemedText>
-      ) : null}
-    </View>
-  );
-}
-
-function ProgressBar({ progressMs, durationMs }: { progressMs: number; durationMs: number }) {
-  const theme = useTheme();
-  const pct = durationMs > 0 ? Math.min(100, (progressMs / durationMs) * 100) : 0;
-  return (
-    <View style={styles.progressWrap}>
-      <View style={[styles.progressTrack, { backgroundColor: theme.backgroundSelected }]}>
-        <View style={[styles.progressFill, { width: `${pct}%`, backgroundColor: theme.tint }]} />
-      </View>
-      <View style={styles.timeRow}>
-        <ThemedText type="small" themeColor="textSecondary">
-          {msToClock(progressMs)}
-        </ThemedText>
-        <ThemedText type="small" themeColor="textSecondary">
-          {msToClock(durationMs)}
-        </ThemedText>
-      </View>
-    </View>
-  );
+  const status = useLiveStatus(runner.id, active);
+  return <LiveCard title={runner.name} status={status} expanded={expanded} onToggle={onToggle} />;
 }
 
 const styles = StyleSheet.create({
-  statusRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
-  statusText: { fontWeight: '700', fontSize: 20 },
-  mapWrap: { gap: Spacing.two },
-  mapCaption: { textAlign: 'center' },
-  workoutLabel: { marginTop: Spacing.two, fontWeight: '600' },
-  runProgress: { marginTop: Spacing.three, gap: Spacing.one },
-  runTrack: { height: 8, borderRadius: 4, overflow: 'hidden' },
-  runFill: { height: 8, borderRadius: 4 },
-  startTrack: { marginTop: Spacing.one },
-  sectionLabel: { marginBottom: Spacing.two, letterSpacing: 1 },
-  npRow: { flexDirection: 'row', gap: Spacing.three, alignItems: 'center' },
-  albumArt: { width: 72, height: 72, borderRadius: Spacing.two },
-  npBody: { flex: 1, gap: Spacing.half },
-  track: { fontWeight: '700' },
-  progressWrap: { marginTop: Spacing.two, gap: Spacing.half },
-  progressTrack: { height: 4, borderRadius: 2, overflow: 'hidden' },
-  progressFill: { height: 4, borderRadius: 2 },
-  timeRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  segmentRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, marginTop: Spacing.two },
 });
